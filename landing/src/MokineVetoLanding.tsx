@@ -175,7 +175,7 @@ export default function MokineVetoLanding() {
   );
 
   return (
-    <div style={{ fontFamily: "'Hanken Grotesk',sans-serif", color: C.ink, maxWidth: 1280, margin: "0 auto", background: "#fff" }}>
+    <div style={{ fontFamily: "'Hanken Grotesk',sans-serif", color: C.ink, width: "100%", background: "#fff" }}>
       <style>{`
         @keyframes mkv-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
         .mkv details>summary::-webkit-details-marker { display:none; }
