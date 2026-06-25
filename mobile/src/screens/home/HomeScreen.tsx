@@ -98,6 +98,13 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Quick actions */}
+        <View style={styles.quickRow}>
+          <QuickAction icon="sparkles-outline" label="Assistant IA" onPress={() => nav.navigate('Chatbot')} />
+          <QuickAction icon="book-outline" label="Fiches" onPress={() => nav.navigate('FichesList')} />
+          <QuickAction icon="albums-outline" label="Cheptel" onPress={() => nav.navigate('HerdList')} />
+        </View>
+
         {/* Categories */}
         <Text style={styles.sectionTitle}>Parcourir par catégorie</Text>
         <View style={styles.categories}>
@@ -105,7 +112,13 @@ export default function HomeScreen() {
             <Pressable
               key={c.key}
               style={styles.category}
-              onPress={() => nav.navigate('VetList', { title: c.label })}
+              onPress={() =>
+                c.key === 'eleveurs'
+                  ? nav.navigate('HerdList')
+                  : c.key === 'marche'
+                    ? nav.navigate('FichesList')
+                    : nav.navigate('VetList', { title: c.label })
+              }
             >
               <View style={styles.categoryIcon}>
                 <MaterialCommunityIcons name={c.icon} size={26} color={colors.brown} />
@@ -135,6 +148,17 @@ export default function HomeScreen() {
         <View style={{ height: 90 }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function QuickAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return (
+    <Pressable style={styles.quickAction} onPress={onPress}>
+      <View style={styles.quickIcon}>
+        <Ionicons name={icon} size={22} color={colors.white} />
+      </View>
+      <Text style={styles.quickLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -195,6 +219,10 @@ const styles = StyleSheet.create({
   featuredChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ffffff22', borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 3, maxWidth: 150 },
   featuredChipText: { fontFamily: fonts.body, fontSize: 11, color: colors.white },
 
+  quickRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
+  quickAction: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: radii.lg, paddingVertical: spacing.md, ...shadow.soft },
+  quickIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
+  quickLabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.brown },
   sectionTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.green, marginTop: spacing.lg, marginBottom: spacing.md },
   categories: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl },
   category: { alignItems: 'center', flex: 1 },

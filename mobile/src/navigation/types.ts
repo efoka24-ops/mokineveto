@@ -45,6 +45,14 @@ export type RootStackParamList = {
   Privacy: undefined;
   Help: undefined;
 
+  // Assistant IA / Fiches / Cheptel
+  Chatbot: undefined;
+  FichesList: undefined;
+  FicheDetail: { id: string };
+  HerdList: undefined;
+  AddAnimal: undefined;
+  AnimalDetail: { id: string };
+
   // Paiement
   PaymentMethods: undefined;
   AddCard: undefined;

@@ -38,6 +38,14 @@ import NotificationSettingsScreen from '../screens/profile/NotificationSettingsS
 import PrivacyScreen from '../screens/profile/PrivacyScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 
+// Assistant IA / Fiches / Cheptel
+import ChatbotScreen from '../screens/assistant/ChatbotScreen';
+import FichesListScreen from '../screens/fiches/FichesListScreen';
+import FicheDetailScreen from '../screens/fiches/FicheDetailScreen';
+import HerdListScreen from '../screens/herd/HerdListScreen';
+import AddAnimalScreen from '../screens/herd/AddAnimalScreen';
+import AnimalDetailScreen from '../screens/herd/AnimalDetailScreen';
+
 // Paiement
 import PaymentMethodsScreen from '../screens/payment/PaymentMethodsScreen';
 import AddCardScreen from '../screens/payment/AddCardScreen';
@@ -87,6 +95,12 @@ export default function RootNavigator() {
           <Stack.Screen name="PaymentRecap" component={PaymentRecapScreen} />
           <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+          <Stack.Screen name="Chatbot" component={ChatbotScreen} />
+          <Stack.Screen name="FichesList" component={FichesListScreen} />
+          <Stack.Screen name="FicheDetail" component={FicheDetailScreen} />
+          <Stack.Screen name="HerdList" component={HerdListScreen} />
+          <Stack.Screen name="AddAnimal" component={AddAnimalScreen} />
+          <Stack.Screen name="AnimalDetail" component={AnimalDetailScreen} />
         </Stack.Group>
       ) : (
         <Stack.Group>

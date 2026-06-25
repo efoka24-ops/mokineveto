@@ -316,7 +316,7 @@ export default function MokineVetoLanding() {
         </div>
 
         {/* ===================== POUR QUI ===================== */}
-        <div id="who" style={{ background: C.brown, padding: "80px 56px" }}>
+        <div id="who" style={{ background: C.brown, margin: "0 56px 76px", borderRadius: 24, padding: "56px 48px" }}>
           <div style={{ marginBottom: 46 }}>
             <div style={{ font: "700 13px 'Space Grotesk',sans-serif", letterSpacing: ".14em", textTransform: "uppercase", color: "#7BD389", marginBottom: 12 }}>{t("nav.who")}</div>
             <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 42, color: "#fff", margin: 0, letterSpacing: "-.02em" }}>{t("who.h2")}</h2>
