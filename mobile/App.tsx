@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import RootNavigator from './src/navigation/RootNavigator';
 import { useAppFonts } from './src/theme/useAppFonts';
 import { colors } from './src/theme';
+import './src/i18n';
 
 export default function App() {
   const fontsLoaded = useAppFonts();

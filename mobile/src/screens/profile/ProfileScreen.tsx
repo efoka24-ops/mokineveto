@@ -3,6 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../components';
 import { colors, fonts, radii, shadow, spacing } from '../../theme';
@@ -13,23 +14,24 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ProfileScreen() {
   const nav = useNavigation<Nav>();
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const [confirm, setConfirm] = useState(false);
 
   const items: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }[] = [
-    { icon: 'person-outline', label: 'Profil', onPress: () => nav.navigate('EditProfile') },
-    { icon: 'heart-outline', label: 'Favoris', onPress: () => nav.navigate('Favorites') },
-    { icon: 'wallet-outline', label: 'Méthode de paiement', onPress: () => nav.navigate('PaymentMethods') },
-    { icon: 'lock-closed-outline', label: 'Politique de confidentialité', onPress: () => nav.navigate('Privacy') },
-    { icon: 'settings-outline', label: 'Paramètres', onPress: () => nav.navigate('Settings') },
-    { icon: 'help-circle-outline', label: 'Aide', onPress: () => nav.navigate('Help') },
-    { icon: 'log-out-outline', label: 'Déconnexion', onPress: () => setConfirm(true) },
+    { icon: 'person-outline', label: t('profile.edit'), onPress: () => nav.navigate('EditProfile') },
+    { icon: 'heart-outline', label: t('profile.favorites'), onPress: () => nav.navigate('Favorites') },
+    { icon: 'wallet-outline', label: t('profile.paymentMethod'), onPress: () => nav.navigate('PaymentMethods') },
+    { icon: 'lock-closed-outline', label: t('profile.privacy'), onPress: () => nav.navigate('Privacy') },
+    { icon: 'settings-outline', label: t('profile.settings'), onPress: () => nav.navigate('Settings') },
+    { icon: 'help-circle-outline', label: t('profile.help'), onPress: () => nav.navigate('Help') },
+    { icon: 'log-out-outline', label: t('profile.logout'), onPress: () => setConfirm(true) },
   ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <Text style={styles.title}>Mon Profil</Text>
+      <Text style={styles.title}>{t('profile.title')}</Text>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.head}>
           <Image source={{ uri: user?.avatarUrl ?? 'https://i.pravatar.cc/150?u=mv' }} style={styles.avatar} />
@@ -51,12 +53,12 @@ export default function ProfileScreen() {
       <Modal transparent visible={confirm} animationType="fade" onRequestClose={() => setConfirm(false)}>
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Déconnexion</Text>
-            <Text style={styles.sheetBody}>Êtes-vous sûr de vouloir vous déconnecter ?</Text>
+            <Text style={styles.sheetTitle}>{t('profile.logout')}</Text>
+            <Text style={styles.sheetBody}>{t('profile.logoutConfirm')}</Text>
             <View style={styles.sheetActions}>
-              <Button title="Annuler" variant="outline" style={{ flex: 1 }} onPress={() => setConfirm(false)} />
+              <Button title={t('common.cancel')} variant="outline" style={{ flex: 1 }} onPress={() => setConfirm(false)} />
               <View style={{ width: spacing.md }} />
-              <Button title="Oui" style={{ flex: 1 }} onPress={() => { setConfirm(false); signOut(); }} />
+              <Button title={t('common.yes')} style={{ flex: 1 }} onPress={() => { setConfirm(false); signOut(); }} />
             </View>
           </View>
         </View>
