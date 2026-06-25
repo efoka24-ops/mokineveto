@@ -1,6 +1,7 @@
 import React from 'react';
-import { Placeholder } from '../../components';
+import MobileMoneyForm from './MobileMoneyForm';
+import { colors } from '../../theme';
 
 export default function MtnMomoScreen() {
-  return <Placeholder title="MTN Momo" hint="Paiement MTN MoMo à venir" />;
+  return <MobileMoneyForm title="MTN Momo" brandColor={colors.mtn} brandLabel="MTN MoMo" />;
 }

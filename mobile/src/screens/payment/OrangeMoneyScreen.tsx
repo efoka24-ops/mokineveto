@@ -1,6 +1,7 @@
 import React from 'react';
-import { Placeholder } from '../../components';
+import MobileMoneyForm from './MobileMoneyForm';
+import { colors } from '../../theme';
 
 export default function OrangeMoneyScreen() {
-  return <Placeholder title="Orange Money" hint="Paiement Orange Money à venir" />;
+  return <MobileMoneyForm title="Orange Money" brandColor={colors.orange} brandLabel="Orange Money" />;
 }
