@@ -32,14 +32,24 @@ export default function Input({
   ...rest
 }: Props) {
   const [hidden, setHidden] = useState(!!secure);
+  const [focused, setFocused] = useState(false);
   const filled = fieldVariant === 'filled';
+
   return (
     <View style={[styles.wrap, containerStyle]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <View
         style={[
           styles.field,
-          { backgroundColor: filled ? colors.greenPale : colors.white },
+          {
+            backgroundColor: focused
+              ? filled
+                ? colors.greenPale
+                : colors.white
+              : filled
+              ? colors.greenPale
+              : colors.white,
+          },
         ]}
       >
         {icon ? (
@@ -48,6 +58,9 @@ export default function Input({
         <TextInput
           placeholderTextColor={filled ? colors.greenDark + '99' : colors.greyLight}
           secureTextEntry={hidden}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          underlineColorAndroid="transparent"
           style={[styles.input, { color: filled ? colors.greenDark : colors.ink }, style]}
           {...rest}
         />
