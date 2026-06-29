@@ -8,111 +8,102 @@ async function hashPassword(password: string) {
 }
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding database with real users...');
 
-  // Create ADMIN user
+  // ===== CLEANUP: Delete existing seed data =====
+  await prisma.notification.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
+  await prisma.review.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.ficheUnlock.deleteMany();
+  await prisma.fiche.deleteMany();
+  await prisma.favorite.deleteMany();
+  await prisma.healthEvent.deleteMany();
+  await prisma.animal.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.savedMoneyAccount.deleteMany();
+  await prisma.availability.deleteMany();
+  await prisma.vetProfile.deleteMany();
+  await prisma.user.deleteMany();
+  console.log('✓ Cleaned up database');
+
+  // ===== ADMIN USER =====
   const adminPassword = await hashPassword('admin123456');
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@mokineveto.cm' },
-    update: {},
-    create: {
+  const admin = await prisma.user.create({
+    data: {
       name: 'Administrateur MokineVeto',
       email: 'admin@mokineveto.cm',
-      phone: '+237691234567',
+      phone: '+237691111111',
       passwordHash: adminPassword,
       role: 'ADMIN',
       avatarUrl: 'https://i.pravatar.cc/300?u=admin-mokineveto',
     },
   });
-  console.log('✓ Created ADMIN user:', admin.email);
+  console.log('✓ Created ADMIN:', admin.email);
 
-  // Create ELEVEUR demo user
-  const eleveurPassword = await hashPassword('eleveur123456');
-  const eleveur = await prisma.user.upsert({
-    where: { email: 'herve@mokineveto.cm' },
-    update: {},
-    create: {
-      name: 'Hervé TATINOU',
-      email: 'herve@mokineveto.cm',
-      phone: '+237656789000',
+  // ===== ELEVEUR USER: MARLY YAYA (GAROUA) =====
+  const eleveurPassword = await hashPassword('marly123456');
+  const eleveur = await prisma.user.create({
+    data: {
+      name: 'MARLY YAYA',
+      email: 'kowssimamarlyy@gmail.com',
+      phone: '+237691234567',
       passwordHash: eleveurPassword,
       role: 'ELEVEUR',
-      birthDate: '29 / 01 / 1990',
-      avatarUrl: 'https://i.pravatar.cc/300?u=herve-mokineveto',
+      birthDate: '01 / 01 / 1985',
+      avatarUrl: 'https://i.pravatar.cc/300?u=marly-yaya-garoua',
     },
   });
-  console.log('✓ Created ELEVEUR user:', eleveur.email);
+  console.log('✓ Created ELEVEUR:', eleveur.email, '(GAROUA)');
 
-  // Create VETERINAIRE users (6 existing mock vets)
-  const vetSpecialties = [
-    { name: 'Dr. Moustapha Ali', specialty: 'Médecine bovine', gender: 'homme', ordreNumber: 'No 1234D' },
-    { name: 'Dr. Olivia Turner', specialty: 'Aviculture', gender: 'femme', ordreNumber: 'No 2051A' },
-    { name: 'Dr. Alexander Bennett', specialty: 'Médecine des petits ruminants', gender: 'homme', ordreNumber: 'No 3098C' },
-    { name: 'Dr. Sophia Martinez', specialty: 'Reproduction animale', gender: 'femme', ordreNumber: 'No 4477B' },
-    { name: 'Dr. Michael Davidson', specialty: 'Pathologie porcine', gender: 'homme', ordreNumber: 'No 5521E' },
-    { name: 'Dr. NGANE', specialty: 'Santé du troupeau', gender: 'homme', ordreNumber: 'No 1234D' },
-  ];
+  // ===== VETERINAIRE USER: EMMANUEL FOKA (GAROUA) =====
+  const vetPassword = await hashPassword('foka123456');
+  const vetUser = await prisma.user.create({
+    data: {
+      name: 'Dr. Emmanuel FOKA',
+      email: 'emm.foka@gmail.com',
+      phone: '+237691222222',
+      passwordHash: vetPassword,
+      role: 'VETERINAIRE',
+      avatarUrl: 'https://i.pravatar.cc/300?u=emmanuel-foka-vet',
+    },
+  });
+  console.log('✓ Created VETERINAIRE:', vetUser.email, '(GAROUA)');
 
-  const vets: any[] = [];
-  for (const vet of vetSpecialties) {
-    const password = await hashPassword('vet123456');
-    const email = vet.name.toLowerCase().replace(/\s+/g, '').replace(/\./, '') + '@mokineveto.cm';
-    const phone = `+23769${String(vets.length + 1).padStart(8, '0')}`;
+  // ===== VET PROFILE FOR EMMANUEL FOKA =====
+  const vetProfile = await prisma.vetProfile.create({
+    data: {
+      userId: vetUser.id,
+      specialty: 'Médecine bovine',
+      gender: 'homme',
+      experienceYears: 10,
+      schedule: 'Lun-Sam / 9:00AM - 5:00PM',
+      hourlyRate: 8000,
+      professional: true,
+      focus: 'Suivi professionnel des élevages camerounais',
+      ordreNumber: 'ORVET-2024-001',
+      verification: 'APPROVED',
+      ratingAvg: 4.9,
+      ratingCount: 0,
+    },
+  });
+  console.log('✓ Created VetProfile for Dr. Foka');
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: {
-        name: vet.name,
-        email,
-        phone,
-        passwordHash: password,
-        role: 'VETERINAIRE',
-        avatarUrl: `https://i.pravatar.cc/300?u=${vet.name.toLowerCase().replace(/\s+/g, '-')}`,
+  // ===== AVAILABILITY FOR DR. FOKA =====
+  for (let dayOfWeek = 1; dayOfWeek <= 5; dayOfWeek++) {
+    // Monday to Friday
+    await prisma.availability.create({
+      data: {
+        vetProfileId: vetProfile.id,
+        dayOfWeek,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotMinutes: 30,
       },
     });
-
-    const vetProfile = await prisma.vetProfile.upsert({
-      where: { userId: user.id },
-      update: {},
-      create: {
-        userId: user.id,
-        specialty: vet.specialty,
-        gender: vet.gender,
-        experienceYears: [18, 20, 15, 12, 16, 22][vets.length],
-        schedule: 'Lun-Sam / 9:00AM - 5:00PM',
-        hourlyRate: [8000, 7000, 6000, 9000, 7500, 8500][vets.length],
-        professional: true,
-        focus: 'Suivi professionnel des élevages',
-        ordreNumber: vet.ordreNumber,
-        verification: 'APPROVED',
-        ratingAvg: 4.8 + (vets.length * 0.01),
-        ratingCount: 40 + (vets.length * 10),
-      },
-      include: { user: true },
-    });
-    vets.push(vetProfile);
-    console.log(`✓ Created VETERINAIRE: ${user.name}`);
   }
-
-  // Create Availability templates for vets (weekdays, 9-17)
-  for (const vet of vets) {
-    for (let dayOfWeek = 1; dayOfWeek <= 5; dayOfWeek++) {
-      // Monday to Friday
-      await prisma.availability.upsert({
-        where: { vetProfileId_dayOfWeek: { vetProfileId: vet.id, dayOfWeek } },
-        update: {},
-        create: {
-          vetProfileId: vet.id,
-          dayOfWeek,
-          startTime: '09:00',
-          endTime: '17:00',
-          slotMinutes: 30,
-        },
-      });
-    }
-  }
-  console.log('✓ Created Availability templates for vets');
+  console.log('✓ Created Availability templates for Dr. Foka');
 
   // Create sample Animals for eleveur
   const animals = [];
@@ -204,10 +195,8 @@ async function main() {
   ];
 
   for (const fiche of fiches) {
-    await prisma.fiche.upsert({
-      where: { id: fiche.name }, // Use name as id for upsert
-      update: {},
-      create: {
+    await prisma.fiche.create({
+      data: {
         name: fiche.name,
         species: fiche.species,
         contagious: fiche.contagious,

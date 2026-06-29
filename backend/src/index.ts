@@ -5,6 +5,9 @@ import { config } from './config.js';
 import { authRouter } from './routes/auth.js';
 import { paymentsRouter } from './routes/payments.js';
 import { vetsRouter } from './routes/vets.js';
+import { appointmentsRouter } from './routes/appointments.js';
+import { animalsRouter } from './routes/animals.js';
+import { fichesRouter } from './routes/fiches.js';
 import { verifySmtp } from './services/mailer.js';
 
 const app = express();
@@ -22,6 +25,9 @@ app.get('/health', async (_req, res) => {
 app.use('/auth', authRouter);
 app.use('/payments', paymentsRouter);
 app.use('/vets', vetsRouter);
+app.use('/appointments', appointmentsRouter);
+app.use('/animals', animalsRouter);
+app.use('/fiches', fichesRouter);
 
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } }));
