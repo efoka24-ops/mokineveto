@@ -61,7 +61,15 @@ export default function Input({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           underlineColorAndroid="transparent"
-          style={[styles.input, { color: filled ? colors.greenDark : colors.ink }, style]}
+          style={[
+            styles.input,
+            { color: filled ? colors.greenDark : colors.ink },
+            style,
+            // Web-specific styles to disable outline/border on focus
+            {
+              outlineStyle: 'none',
+            } as any,
+          ]}
           {...rest}
         />
         {secure ? (
@@ -95,17 +103,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     height: 54,
     borderWidth: 0,
-    outline: 'none',
-  } as any,
+  },
   input: {
     flex: 1,
     fontFamily: fonts.body,
     fontSize: 15,
     paddingVertical: 0,
     borderWidth: 0,
-    outlineWidth: 0,
-    outline: 'none',
-    border: 'none',
-    boxShadow: 'none',
-  } as any,
+  },
 });
