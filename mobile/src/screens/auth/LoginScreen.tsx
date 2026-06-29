@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Input, Screen, SocialRow, TopBar } from '../../components';
 import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
-import { useAuthStore } from '../../store/useAuthStore';
 import { signInWithPassword } from '../../services/auth';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function LoginScreen() {
   const nav = useNavigation<Nav>();
-  const signIn = useAuthStore((s) => s.signIn);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,8 +18,10 @@ export default function LoginScreen() {
   const onLogin = async () => {
     setLoading(true);
     try {
-      const { user, token } = await signInWithPassword(email, password);
-      await signIn(user, token);
+      await signInWithPassword(email, password);
+      nav.replace('App');
+    } catch (err) {
+      Alert.alert('Erreur', err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }

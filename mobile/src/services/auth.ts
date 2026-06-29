@@ -1,52 +1,54 @@
 /**
- * Couche d'authentification — mockée.
- * Reproduit la signature de la future API (OTP e-mail/SMS, PIN, biométrie côté backend).
+ * Auth service — real backend implementation
+ * Wraps useAuthStore actions for screen components
  */
-import type { Role, User } from '../store/useAuthStore';
+import { useAuthStore, type User } from '../store/useAuthStore';
+import type { SignupPayload, LoginPayload, UpdateProfilePayload } from './api';
 
-const wait = (ms = 400) => new Promise((r) => setTimeout(r, ms));
+export interface SignupInput extends Omit<SignupPayload, 'role'> {
+  role: 'ELEVEUR' | 'VETERINAIRE';
+}
 
-const DEMO_USER: User = {
-  id: 'u1',
-  name: 'Hervé TATINOU',
-  email: 'tatinou@example.com',
-  phone: '+237 656 78 90 00',
-  role: 'ELEVEUR',
-  avatarUrl: 'https://i.pravatar.cc/300?u=mokinevet-herve',
-  birthDate: '29 / 01 / 1990',
-};
-
-export interface SignupInput {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-  role: Role;
-  birthDate?: string;
+export async function signUp(input: SignupInput): Promise<{ user: User; token: string }> {
+  const { signup } = useAuthStore.getState();
+  await signup(input);
+  const { user, token } = useAuthStore.getState();
+  if (!user || !token) throw new Error('Signup succeeded but auth state empty');
+  return { user, token };
 }
 
 export async function signInWithPassword(
   emailOrPhone: string,
-  _password: string,
+  password: string,
 ): Promise<{ user: User; token: string }> {
-  await wait();
-  return {
-    user: { ...DEMO_USER, email: emailOrPhone.includes('@') ? emailOrPhone : DEMO_USER.email },
-    token: 'demo-token',
-  };
+  const { login } = useAuthStore.getState();
+  await login({ emailOrPhone, password });
+  const { user, token } = useAuthStore.getState();
+  if (!user || !token) throw new Error('Login succeeded but auth state empty');
+  return { user, token };
 }
 
-export async function signUp(input: SignupInput): Promise<{ user: User; token: string }> {
-  await wait();
-  return {
-    user: {
-      ...DEMO_USER,
-      name: input.name || DEMO_USER.name,
-      email: input.email || DEMO_USER.email,
-      phone: input.phone || DEMO_USER.phone,
-      role: input.role,
-      birthDate: input.birthDate ?? DEMO_USER.birthDate,
-    },
-    token: 'demo-token',
-  };
+export async function updateUserProfile(patch: UpdateProfilePayload): Promise<User> {
+  const { updateProfile } = useAuthStore.getState();
+  await updateProfile(patch);
+  const { user } = useAuthStore.getState();
+  if (!user) throw new Error('Update succeeded but user not set');
+  return user;
+}
+
+export async function signOut(): Promise<void> {
+  const { signOut: doSignOut } = useAuthStore.getState();
+  await doSignOut();
+}
+
+export async function isLoggedIn(): Promise<boolean> {
+  return useAuthStore.getState().token !== null;
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  return useAuthStore.getState().user;
+}
+
+export async function getToken(): Promise<string | null> {
+  return useAuthStore.getState().token;
 }
