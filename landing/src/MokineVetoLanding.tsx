@@ -6,7 +6,7 @@ import React, { useState } from "react";
  * Logo : déposez `mark.svg`/`mark.png` dans /public (constante MARK ci-dessous).
  */
 
-const MARK = `${import.meta.env.BASE_URL}mark.svg`; // pictogramme MokineVeto
+const LOGO = `${import.meta.env.BASE_URL}logo.jpg`; // Official MokineVET branding
 const APK_URL = "http://localhost:8000/downloads/app.apk"; // Local dev (for production: update URL)
 
 /* ------------------------------------------------------------------ */
@@ -196,7 +196,7 @@ export default function MokineVetoLanding() {
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "22px 56px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
               <span style={{ background: "#fff", borderRadius: 11, padding: "6px 8px", display: "inline-flex" }}>
-                <img src={MARK} alt="MokineVeto" style={{ height: 30, width: "auto", display: "block" }} />
+                <img src={LOGO} alt="MokineVeto" style={{ height: 30, width: "auto", display: "block" }} />
               </span>
               <div style={{ lineHeight: 1 }}>
                 <div style={{ font: "700 21px 'Space Grotesk',sans-serif", letterSpacing: "-.01em" }}>
@@ -245,7 +245,7 @@ export default function MokineVetoLanding() {
                 <div style={{ background: "#F5F1E9", borderRadius: 26, overflow: "hidden" }}>
                   <div style={{ background: C.green, padding: "14px 16px 13px", color: "#fff" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <img src={MARK} alt="" style={{ height: 20, filter: "brightness(0) invert(1)", opacity: .95 }} />
+                      <img src={LOGO} alt="" style={{ height: 20, filter: "brightness(0) invert(1)", opacity: .95 }} />
                       <div style={{ fontWeight: 700, fontSize: 13 }}>Assistant MokineVeto</div>
                       <div style={{ marginLeft: "auto", fontSize: 10, background: "rgba(255,255,255,.22)", padding: "3px 7px", borderRadius: 999 }}>IA</div>
                     </div>
@@ -453,7 +453,7 @@ export default function MokineVetoLanding() {
         {/* ===================== FOOTER ===================== */}
         <div data-grid style={{ background: C.ink, color: "#C9B6A2", padding: "44px 56px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span style={{ background: "#fff", borderRadius: 9, padding: "5px 7px", display: "inline-flex" }}><img src={MARK} alt="" style={{ height: 26, display: "block" }} /></span>
+            <span style={{ background: "#fff", borderRadius: 9, padding: "5px 7px", display: "inline-flex" }}><img src={LOGO} alt="" style={{ height: 26, display: "block" }} /></span>
             <div style={{ lineHeight: 1.2 }}>
               <div style={{ font: "700 18px 'Space Grotesk',sans-serif" }}><span style={{ color: "#fff" }}>Mokine</span><span style={{ color: C.greenLt }}>Veto</span></div>
               <div style={{ fontSize: 11, color: "#8A7159" }}>Télémédecine vétérinaire · Cameroun</div>

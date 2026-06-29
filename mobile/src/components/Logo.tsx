@@ -6,13 +6,13 @@ interface Props {
 }
 
 export default function Logo({ size = 1 }: Props) {
-  const logoWidth = 350 * size;
-  const logoHeight = 100 * size;
+  const logoWidth = 280 * size;
+  const logoHeight = 80 * size;
 
   return (
     <View style={styles.wrap}>
       <Image
-        source={require('../../assets/mokinevet-official.svg')}
+        source={require('../../assets/logo.jpg')}
         style={[styles.logo, { width: logoWidth, height: logoHeight }]}
         resizeMode="contain"
       />
@@ -22,5 +22,5 @@ export default function Logo({ size = 1 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', justifyContent: 'center' },
-  logo: { width: 350, height: 100 },
+  logo: { width: 280, height: 80 },
 });

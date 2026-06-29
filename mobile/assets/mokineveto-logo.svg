@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <!-- Logo MokineVET -->
+
+  <!-- Brown Pin Background -->
+  <circle cx="70" cy="100" r="65" fill="#6B4423"/>
+
+  <!-- White Circle -->
+  <circle cx="70" cy="100" r="50" fill="#FFFFFF"/>
+
+  <!-- Green Globe/Recycle -->
+  <g transform="translate(70, 100)">
+    <!-- Globe with green continents -->
+    <circle cx="0" cy="0" r="35" fill="none" stroke="#2D9D4F" stroke-width="2"/>
+    <path d="M -15 -10 Q -5 0 0 10 Q 5 5 15 8" fill="#2D9D4F"/>
+    <path d="M -10 10 Q 0 15 10 12" fill="#2D9D4F"/>
+  </g>
+
+  <!-- Green Arrow Top -->
+  <path d="M 120 35 L 145 10 L 170 35" fill="none" stroke="#2D9D4F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Text: MOKINE (Brown) -->
+  <text x="200" y="130" font-family="Arial, sans-serif" font-size="90" font-weight="bold" fill="#6B4423">MOKINE</text>
+
+  <!-- Text: VET (Green) -->
+  <text x="620" y="155" font-family="Arial, sans-serif" font-size="55" font-weight="bold" fill="#2D9D4F">VET</text>
+
+  <!-- Tagline -->
+  <text x="200" y="175" font-family="Arial, sans-serif" font-size="18" fill="#6B4423">Remote Healthcare</text>
+</svg>
