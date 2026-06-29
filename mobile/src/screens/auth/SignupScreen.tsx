@@ -18,16 +18,43 @@ export default function SignupScreen() {
     email: '',
     phone: '',
     birthDate: '',
+    // Vet fields
+    specialty: '',
+    gender: '',
+    experienceYears: '',
+    ordreNumber: '',
+    professional: '',
+    focus: '',
   });
   const [role, setRole] = useState<Role>('ELEVEUR');
   const [loading, setLoading] = useState(false);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const isVet = role === 'VETERINAIRE';
 
   const onSubmit = async () => {
     setLoading(true);
     try {
-      await signUp({ ...form, role });
+      const payload: any = {
+        name: form.name,
+        password: form.password,
+        email: form.email,
+        phone: form.phone,
+        birthDate: form.birthDate,
+        role,
+      };
+
+      // Add vet-specific fields if registering as vet
+      if (isVet) {
+        payload.specialty = form.specialty;
+        payload.gender = form.gender;
+        payload.experienceYears = parseInt(form.experienceYears) || 0;
+        payload.ordreNumber = form.ordreNumber;
+        payload.professional = form.professional === 'yes';
+        payload.focus = form.focus;
+      }
+
+      await signUp(payload);
       nav.replace('App');
     } catch (err) {
       Alert.alert('Erreur', err instanceof Error ? err.message : 'Signup failed');
@@ -40,6 +67,7 @@ export default function SignupScreen() {
     <Screen bg={colors.white} scroll>
       <TopBar title="Nouveau Compte" />
       <View style={styles.form}>
+        {/* Common Fields */}
         <Input label="Nom" placeholder="Votre nom complet" value={form.name} onChangeText={set('name')} />
         <Input label="Mot De Passe" placeholder="••••••••" secure value={form.password} onChangeText={set('password')} />
         <Input
@@ -57,6 +85,8 @@ export default function SignupScreen() {
           value={form.phone}
           onChangeText={set('phone')}
         />
+
+        {/* Role Selection */}
         <Select
           label="Utilisateur"
           value={role}
@@ -66,6 +96,57 @@ export default function SignupScreen() {
             { label: 'Vétérinaire', value: 'VETERINAIRE' },
           ]}
         />
+
+        {/* Vet-Specific Fields */}
+        {isVet && (
+          <>
+            <Input
+              label="Spécialité"
+              placeholder="ex: Médecine bovine"
+              value={form.specialty}
+              onChangeText={set('specialty')}
+            />
+            <Select
+              label="Genre"
+              value={form.gender}
+              onChange={set('gender')}
+              options={[
+                { label: 'Homme', value: 'homme' },
+                { label: 'Femme', value: 'femme' },
+              ]}
+            />
+            <Input
+              label="Années d'Expérience"
+              placeholder="ex: 5"
+              keyboardType="number-pad"
+              value={form.experienceYears}
+              onChangeText={set('experienceYears')}
+            />
+            <Input
+              label="Numéro d'Ordre Professionnel"
+              placeholder="ex: ODP-12345"
+              value={form.ordreNumber}
+              onChangeText={set('ordreNumber')}
+            />
+            <Select
+              label="Professionnel Établi"
+              value={form.professional}
+              onChange={set('professional')}
+              options={[
+                { label: 'Oui', value: 'yes' },
+                { label: 'Non', value: 'no' },
+              ]}
+            />
+            <Input
+              label="Domaine de Focus"
+              placeholder="ex: Bovins, Volailles, etc."
+              value={form.focus}
+              onChangeText={set('focus')}
+            />
+          </>
+        )}
+
+        {/* Common Field (after vet fields) */}
         <Input
           label="Date De Naissance"
           placeholder="DD / MM / YYYY"

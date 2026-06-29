@@ -18,6 +18,13 @@ const signupSchema = z.object({
   password: z.string().min(8),
   role: z.enum(['ELEVEUR', 'VETERINAIRE']),
   birthDate: z.string().optional(),
+  // Vet-specific fields (optional)
+  specialty: z.string().optional(),
+  gender: z.enum(['homme', 'femme']).optional(),
+  experienceYears: z.number().min(0).optional(),
+  ordreNumber: z.string().optional(),
+  professional: z.boolean().optional(),
+  focus: z.string().optional(),
 });
 
 authRouter.post('/signup', async (req: Request, res: Response) => {
@@ -26,7 +33,20 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: parsed.error.flatten() });
   }
 
-  const { name, email, phone, password, role, birthDate } = parsed.data;
+  const {
+    name,
+    email,
+    phone,
+    password,
+    role,
+    birthDate,
+    specialty,
+    gender,
+    experienceYears,
+    ordreNumber,
+    professional,
+    focus,
+  } = parsed.data;
 
   try {
     // Check if user already exists
@@ -63,14 +83,14 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
       vetProfile = await prisma.vetProfile.create({
         data: {
           userId: user.id,
-          specialty: 'Général',
-          gender: 'homme',
-          experienceYears: 0,
+          specialty: specialty || 'Général',
+          gender: (gender as 'homme' | 'femme') || 'homme',
+          experienceYears: experienceYears || 0,
           schedule: 'À définir',
           hourlyRate: 7000,
-          professional: false,
-          focus: 'À définir',
-          ordreNumber: 'En attente de vérification',
+          professional: professional || false,
+          focus: focus || 'À définir',
+          ordreNumber: ordreNumber || 'En attente de vérification',
           verification: 'PENDING',
         },
       });

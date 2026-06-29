@@ -54,7 +54,15 @@ export interface SignupPayload {
   email?: string;
   phone: string;
   password: string;
+  birthDate?: string;
   role: 'ELEVEUR' | 'VETERINAIRE';
+  // Vet-specific fields (optional)
+  specialty?: string;
+  gender?: 'homme' | 'femme';
+  experienceYears?: number;
+  ordreNumber?: string;
+  professional?: boolean;
+  focus?: string;
 }
 
 export interface LoginPayload {
