@@ -7,8 +7,7 @@ import React, { useState } from "react";
  */
 
 const MARK = `${import.meta.env.BASE_URL}mark.svg`; // pictogramme MokineVeto
-const APK_URL =
-  "https://github.com/efoka24-ops/mokineveto/releases/latest/download/mokineveto.apk";
+const APK_URL = "http://localhost:8000/downloads/app.apk"; // Local dev (for production: update URL)
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                                */

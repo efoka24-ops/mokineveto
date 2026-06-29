@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300">
+  <!-- Brown Pin (Location Marker) -->
+  <defs>
+    <linearGradient id="pinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3A1C10;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E1409;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Pin Shape (Marker) -->
+  <path d="M 180 80 C 140 80 110 110 110 150 C 110 220 180 320 180 320 C 180 320 250 220 250 150 C 250 110 220 80 180 80 Z" fill="url(#pinGrad)" stroke="#1A0D05" stroke-width="2"/>
+
+  <!-- White Circle Inside Pin -->
+  <circle cx="180" cy="145" r="50" fill="#FFFFFF"/>
+
+  <!-- Green Globe/Recycle Inside -->
+  <g transform="translate(180, 145)">
+    <!-- Outer Circle -->
+    <circle cx="0" cy="0" r="35" fill="none" stroke="#3BB64C" stroke-width="3"/>
+
+    <!-- Top Arrow -->
+    <path d="M 0 -30 L 8 -15 L -8 -15 Z" fill="#3BB64C"/>
+
+    <!-- Globe Continents -->
+    <path d="M -8 -15 Q -15 0 -8 15 Q 0 18 8 15 Q 15 0 8 -15" fill="#3BB64C" opacity="0.8"/>
+    <path d="M -20 5 Q -15 10 -5 12" fill="none" stroke="#3BB64C" stroke-width="2"/>
+    <path d="M 5 -5 Q 15 -8 20 0" fill="none" stroke="#3BB64C" stroke-width="2"/>
+  </g>
+
+  <!-- Green Arrow on Top Right -->
+  <path d="M 280 60 L 320 20 L 360 60" fill="none" stroke="#3BB64C" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Text: MOKINE (Brown) -->
+  <text x="420" y="180" font-family="Arial, Helvetica, sans-serif" font-size="110" font-weight="bold" fill="#2E1409" letter-spacing="2">MOKINE</text>
+
+  <!-- Text: VET (Green) -->
+  <text x="875" y="195" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="bold" fill="#3BB64C" letter-spacing="1">VET</text>
+
+  <!-- Tagline: Remote Healthcare -->
+  <text x="420" y="230" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#2E1409" letter-spacing="0.5">Remote Healthcare</text>
+</svg>
