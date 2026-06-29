@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   slotActive: { backgroundColor: colors.greenDark },
   slotText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.greenDark },
   slotTextActive: { color: colors.white },
-  textareaWrap: { borderWidth: 1.5, borderColor: colors.brown, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.lg },
+  textareaWrap: { backgroundColor: colors.greenPale, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.lg },
   textarea: { minHeight: 90, fontFamily: fonts.body, fontSize: 14, color: colors.ink, textAlignVertical: 'top' },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   infoText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.blue },

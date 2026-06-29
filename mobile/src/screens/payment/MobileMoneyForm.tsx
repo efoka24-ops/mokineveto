@@ -52,6 +52,6 @@ const styles = StyleSheet.create({
   tile: { height: 120, borderRadius: radii.lg, backgroundColor: colors.tileBlack, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xl },
   tileText: { fontFamily: fonts.bodyBold, fontSize: 24 },
   savedLabel: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.ink, marginTop: spacing.md, marginBottom: spacing.sm },
-  savedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  savedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md },
   savedText: { fontFamily: fonts.body, fontSize: 14, color: colors.ink },
 });

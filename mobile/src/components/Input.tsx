@@ -39,9 +39,7 @@ export default function Input({
       <View
         style={[
           styles.field,
-          filled
-            ? { backgroundColor: colors.greenPale }
-            : { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border },
+          { backgroundColor: filled ? colors.greenPale : colors.white },
         ]}
       >
         {icon ? (
