@@ -2,6 +2,8 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { initializeSocket } from './socket.js';
 import { authRouter } from './routes/auth.js';
@@ -14,6 +16,9 @@ import { chatRouter } from './routes/chat.js';
 import { adminRouter } from './routes/admin.js';
 import { verifySmtp } from './services/mailer.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -23,10 +28,22 @@ initializeSocket(httpServer);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/', (_req, res) => res.json({ name: config.appName, status: 'ok', version: '1.0.0' }));
 app.get('/health', async (_req, res) => {
   res.json({ status: 'ok', smtp: await verifySmtp(), uptime: process.uptime() });
+});
+
+// Download APK endpoint
+app.get('/downloads/app.apk', (_req, res) => {
+  const apkPath = path.join(__dirname, '../public/downloads/mokineveto-v1.0.0.apk');
+  res.download(apkPath, 'mokineveto-v1.0.0.apk', (err) => {
+    if (err) {
+      console.error('[downloads] APK error:', err);
+      res.status(500).json({ success: false, error: 'Failed to download APK' });
+    }
+  });
 });
 
 // API Routes

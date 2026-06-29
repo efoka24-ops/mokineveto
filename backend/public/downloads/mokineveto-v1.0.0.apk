@@ -1,0 +1,14 @@
+﻿MokineVeto Mobile App v1.0.0
+Build Date: 2026-06-29
+Platform: Android
+Size: 45.2 MB
+Supported: Android 12.0+
+
+This is a placeholder APK file for testing the download functionality.
+In production, this would be the compiled React Native APK from:
+  eas build --platform android --auto-submit
+
+To use: Transfer this file to Android device and install via:
+  adb install mokineveto-v1.0.0.apk
+
+Or download via browser and tap to install.
