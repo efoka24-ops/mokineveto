@@ -32,7 +32,6 @@ export default function LoginScreen() {
       <TopBar title="Connexion" />
       <View style={styles.form}>
         <Input
-          fieldVariant="outline"
           placeholder="Entrez votre email"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -40,7 +39,6 @@ export default function LoginScreen() {
           onChangeText={setEmail}
         />
         <Input
-          fieldVariant="outline"
           placeholder="Entrez votre mot de passe"
           secure
           value={password}
