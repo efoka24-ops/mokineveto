@@ -1,0 +1,353 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────
+
+enum Role {
+  ELEVEUR
+  VETERINAIRE
+  ADMIN
+}
+
+enum AppointmentStatus {
+  UPCOMING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentPurpose {
+  APPOINTMENT
+  FICHE_UNLOCK
+  OTHER
+}
+
+enum PaymentMethod {
+  CARD
+  ORANGE_MONEY
+  MTN_MOMO
+}
+
+enum HealthEventType {
+  VACCIN
+  VERMIFUGE
+  TRAITEMENT
+  AUTRE
+}
+
+enum VetVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── MODELS ───────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?  @unique
+  phone         String   @unique
+  passwordHash  String
+  role          Role
+  avatarUrl     String?
+  birthDate     String?  // Free text, e.g. "29 / 01 / 1990"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  vetProfile    VetProfile?
+  appointmentsAsEleveur Appointment[] @relation("eleveur")
+  favorites     Favorite[]
+  animals       Animal[]
+  reviews       Review[]
+  payments      Payment[]
+  ficheUnlocks  FicheUnlock[]
+  notifications Notification[]
+  messagesAsAuthor Message[] @relation("author")
+  conversationsAsEleveur Conversation[] @relation("eleveur")
+  savedAccounts SavedMoneyAccount[]
+}
+
+model VetProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  specialty       String
+  gender          String   // 'femme' | 'homme'
+  experienceYears Int
+  schedule        String   // Display text
+  hourlyRate      Int      // XAF
+  professional    Boolean  @default(true)
+  focus           String
+  ordreNumber     String
+
+  verification    VetVerificationStatus @default(PENDING)
+  ratingAvg       Float    @default(0)
+  ratingCount     Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  availability    Availability[]
+  appointments    Appointment[]
+  reviews         Review[]
+  favorites       Favorite[]
+}
+
+model Availability {
+  id              String   @id @default(cuid())
+  vetProfileId    String
+  vetProfile      VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+
+  dayOfWeek       Int      // 0-6 (Monday-Sunday)
+  startTime       String   // "HH:mm"
+  endTime         String   // "HH:mm"
+  slotMinutes     Int      @default(30)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([vetProfileId, dayOfWeek])
+}
+
+model Animal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  species   String
+  breed     String
+  sex       String   // 'M' | 'F'
+  age       String   // Free text
+  robe      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  healthEvents HealthEvent[]
+}
+
+model HealthEvent {
+  id        String   @id @default(cuid())
+  animalId  String
+  animal    Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  type      HealthEventType
+  label     String
+  date      String   // Free text, e.g. "12/03/2026"
+
+  createdAt DateTime @default(now())
+}
+
+model Appointment {
+  id              String   @id @default(cuid())
+  eleveurId       String
+  eleveur         User     @relation("eleveur", fields: [eleveurId], references: [id], onDelete: Cascade)
+
+  vetProfileId    String
+  vetProfile      VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+
+  startsAt        DateTime
+  endsAt          DateTime
+  amount          Int      // XAF
+  reason          String
+  method          PaymentMethod?
+  status          AppointmentStatus @default(UPCOMING)
+
+  cancelReasonCode String?
+  cancelNote      String?
+  cancelledAt     DateTime?
+
+  paymentId       String?  @unique
+  payment         Payment?  @relation(fields: [paymentId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  review          Review?
+
+  @@index([eleveurId])
+  @@index([vetProfileId])
+  @@index([status])
+}
+
+model Review {
+  id              String   @id @default(cuid())
+  appointmentId   String   @unique
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  vetProfileId    String
+  vetProfile      VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+
+  eleveurId       String
+  eleveur         User     @relation(fields: [eleveurId], references: [id], onDelete: Cascade)
+
+  stars           Int      // 1-5
+  comment         String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([vetProfileId])
+}
+
+model Fiche {
+  id          String   @id @default(cuid())
+  name        String
+  species     String[] // JSON array
+  contagious  Boolean
+  description String   @db.Text
+  fieldObs    String   @db.Text // Field observations
+  prevention  String   @db.Text
+  vetInfo     String   @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  unlocks     FicheUnlock[]
+}
+
+model FicheUnlock {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ficheId   String
+  fiche     Fiche    @relation(fields: [ficheId], references: [id], onDelete: Cascade)
+
+  paymentId String   @unique
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, ficheId])
+  @@index([userId])
+}
+
+model Favorite {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vetProfileId  String
+  vetProfile    VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, vetProfileId])
+  @@index([userId])
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose         PaymentPurpose
+  method          PaymentMethod
+  amount          Int      // XAF
+  phone           String?
+
+  camooReference  String?  @unique // Camoo external_reference for webhook idempotency
+  status          PaymentStatus @default(PENDING)
+  rawWebhookPayload Json?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  appointment     Appointment?
+  ficheUnlock     FicheUnlock?
+
+  @@index([userId])
+  @@index([camooReference])
+  @@index([status])
+}
+
+model SavedMoneyAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  method    PaymentMethod
+  phone     String
+  label     String?
+  isDefault Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  eleveurId     String
+  eleveur       User     @relation("eleveur", fields: [eleveurId], references: [id], onDelete: Cascade)
+
+  vetProfileId  String   // No foreign key: allows flexible conversation routing
+
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime?
+
+  // Relations
+  messages      Message[]
+
+  @@unique([eleveurId, vetProfileId])
+  @@index([eleveurId])
+  @@index([vetProfileId])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId        String
+  author          User     @relation("author", fields: [senderId], references: [id], onDelete: Cascade)
+
+  text            String   @db.Text
+  createdAt       DateTime @default(now())
+  readAt          DateTime?
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String   // 'appointment_confirmed', 'appointment_cancelled', 'message', etc.
+  title     String
+  body      String   @db.Text
+  data      Json?    // e.g. { appointmentId, vetName, etc. }
+
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}

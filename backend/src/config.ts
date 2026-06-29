@@ -12,6 +12,18 @@ function required(name: string, fallback?: string): string {
 export const config = {
   port: Number(process.env.PORT ?? 8000),
   appName: 'MokineVeto API',
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+
+  // Database
+  database: {
+    url: required('DATABASE_URL'),
+  },
+
+  // Auth
+  jwt: {
+    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
+  },
 
   // SMTP (compte mokineveto@trugroup.cm)
   smtp: {
