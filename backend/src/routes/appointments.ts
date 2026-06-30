@@ -10,6 +10,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
+import { notifyUser } from '../lib/notify.js';
 
 export const appointmentsRouter = Router();
 
@@ -62,6 +63,19 @@ appointmentsRouter.post('/', requireAuth, async (req, res) => {
         vetProfile: { include: { user: true } },
       },
     });
+
+    // Notifier le vétérinaire (double canal push + e-mail)
+    const startLabel = new Date(startsAt).toLocaleString('fr-FR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    notifyUser(
+      appointment.vetProfile.userId,
+      'appointment_booked',
+      'Nouveau rendez-vous',
+      `${appointment.eleveur.name} a réservé une consultation le ${startLabel}.`,
+      { appointmentId: appointment.id },
+    ).catch((e) => console.error('[appointments] notify failed:', e));
 
     res.json({ success: true, data: appointment });
   } catch (err) {
@@ -190,6 +204,19 @@ appointmentsRouter.patch('/:id/cancel', requireAuth, async (req, res) => {
         vetProfile: { include: { user: true } },
       },
     });
+
+    // Notifier l'autre partie (celui qui n'a pas annulé)
+    const cancellerId = req.user!.id;
+    const eleveurUserId = updated.eleveurId;
+    const vetUserId = updated.vetProfile.userId;
+    const recipientId = cancellerId === eleveurUserId ? vetUserId : eleveurUserId;
+    notifyUser(
+      recipientId,
+      'appointment_cancelled',
+      'Rendez-vous annulé',
+      `Le rendez-vous du ${new Date(updated.startsAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} a été annulé.`,
+      { appointmentId: updated.id },
+    ).catch((e) => console.error('[appointments] notify failed:', e));
 
     res.json({ success: true, data: updated });
   } catch (err) {

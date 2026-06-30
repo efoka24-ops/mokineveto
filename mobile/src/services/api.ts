@@ -200,3 +200,70 @@ export const reviewAppointment = (id: string, stars: number, comment?: string) =
     { stars, comment },
     true
   );
+
+// ─── Notifications & Alerts ────────────────────────────────────────
+export interface ApiNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface ApiAlert {
+  id: string;
+  type: 'EPIDEMIC' | 'REMINDER' | 'SYSTEM';
+  title: string;
+  body: string;
+  region?: string | null;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  createdAt: string;
+  expiresAt?: string | null;
+}
+
+export const listNotifications = () =>
+  api.get<{ success: boolean; data: ApiNotification[] }>('/notifications', true);
+
+export const markNotificationRead = (id: string) =>
+  api.patch<{ success: boolean; data: ApiNotification }>(`/notifications/${id}/read`, {}, true);
+
+export const registerPushToken = (token: string) =>
+  api.post<{ success: boolean }>('/notifications/register-push-token', { token }, true);
+
+export const listAlerts = () =>
+  api.get<{ success: boolean; data: ApiAlert[] }>('/alerts', true);
+
+// ─── Chat ──────────────────────────────────────────────────────────
+export interface ApiConversation {
+  id: string;
+  eleveurId: string;
+  vetProfileId: string;
+  lastMessageAt?: string;
+  messages?: ApiMessage[];
+}
+
+export interface ApiMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  author?: { id: string; name: string };
+}
+
+export const createConversation = (vetProfileId: string) =>
+  api.post<{ success: boolean; data: ApiConversation }>('/chat/conversations', { vetProfileId }, true);
+
+export const getConversation = (id: string) =>
+  api.get<{ success: boolean; data: ApiConversation }>(`/chat/conversations/${id}`, true);
+
+export const listConversations = () =>
+  api.get<{ success: boolean; data: ApiConversation[] }>('/chat/conversations', true);
+
+export const sendMessageRest = (conversationId: string, text: string) =>
+  api.post<{ success: boolean; data: ApiMessage }>(
+    `/chat/conversations/${conversationId}/messages`,
+    { text },
+    true
+  );

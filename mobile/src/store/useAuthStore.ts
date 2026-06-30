@@ -3,6 +3,14 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { signup as signupApi, login as loginApi, updateProfile as updateProfileApi, SignupPayload, LoginPayload, UpdateProfilePayload } from '../services/api';
+import { registerForPushNotifications } from '../services/push';
+import { connectSocket, disconnectSocket } from '../services/socket';
+
+/** Effets post-authentification : socket temps réel + enregistrement push (best-effort). */
+function onAuthenticated(token: string) {
+  connectSocket(token);
+  registerForPushNotifications().catch(() => {});
+}
 
 // expo-secure-store has no web implementation; fall back to AsyncStorage there.
 const secureStorage = Platform.OS === 'web'
@@ -52,6 +60,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (token && userJson) {
         const user = JSON.parse(userJson);
         set({ user, token, hydrated: true });
+        onAuthenticated(token);
         return;
       }
     } catch {
@@ -67,6 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await secureStorage.setItemAsync(TOKEN_KEY, res.token);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.user));
       set({ user: res.user, token: res.token, loading: false });
+      onAuthenticated(res.token);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Signup failed';
       set({ error: message, loading: false });
@@ -81,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await secureStorage.setItemAsync(TOKEN_KEY, res.token);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.user));
       set({ user: res.user, token: res.token, loading: false });
+      onAuthenticated(res.token);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       set({ error: message, loading: false });
@@ -108,6 +119,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // ignore
     }
+    disconnectSocket();
     set({ user: null, token: null, error: null });
   },
 }));

@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { colors, fonts, radii, spacing } from '../../theme';
+import { createConversation, getConversation, sendMessageRest } from '../../services/api';
+import {
+  joinConversation,
+  sendSocketMessage,
+  onNewMessage,
+  getSocket,
+  type SocketMessage,
+} from '../../services/socket';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Rt = RouteProp<RootStackParamList, 'Chat'>;
@@ -15,26 +24,79 @@ interface Msg {
   time: string;
 }
 
-const INITIAL: Msg[] = [
-  { id: '1', text: "Bonjour docteur, mon veau a de la fièvre depuis 2 jours.", mine: true, time: '09:00' },
-  { id: '2', text: 'Bonjour. A-t-il perdu l\'appétit ? Des lésions sur la bouche ?', mine: false, time: '09:05' },
-  { id: '3', text: 'Oui, il bave et ne mange plus.', mine: true, time: '09:08' },
-  { id: '4', text: "Isolez-le immédiatement. Cela peut être contagieux. Envoyez une photo de la bouche.", mine: false, time: '09:10' },
-];
-
 export default function ChatScreen() {
   const nav = useNavigation<any>();
-  const { name } = useRoute<Rt>().params;
-  const [messages, setMessages] = useState<Msg[]>(INITIAL);
+  const { vetId, name } = useRoute<Rt>().params;
+  const myId = useAuthStore((s) => s.user?.id);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const listRef = useRef<FlatList>(null);
 
-  const send = () => {
-    if (!text.trim()) return;
-    setMessages((m) => [
-      ...m,
-      { id: Date.now().toString(), text: text.trim(), mine: true, time: '09:12' },
-    ]);
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
+    const init = async () => {
+      try {
+        // Create/find conversation with this vet
+        const convoRes = await createConversation(vetId);
+        const cid = convoRes.data.id;
+        setConversationId(cid);
+
+        // Load history
+        const full = await getConversation(cid);
+        const history = (full.data.messages || []).map((m) => ({
+          id: m.id,
+          text: m.text,
+          mine: m.senderId === myId,
+          time: fmtTime(m.createdAt),
+        }));
+        setMessages(history);
+
+        // Join socket room + listen
+        joinConversation(cid);
+        cleanup = onNewMessage((msg: SocketMessage) => {
+          if (msg.conversationId !== cid) return;
+          setMessages((prev) => {
+            if (prev.some((p) => p.id === msg.id)) return prev;
+            return [
+              ...prev,
+              { id: msg.id, text: msg.text, mine: msg.senderId === myId, time: fmtTime(msg.timestamp) },
+            ];
+          });
+        });
+      } catch (_err) {
+        console.warn('[ChatScreen] Failed to initialize conversation');
+      }
+    };
+
+    init();
+    return () => cleanup?.();
+  }, [vetId, myId]);
+
+  const send = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || !conversationId) return;
     setText('');
+
+    const socket = getSocket();
+    if (socket?.connected) {
+      sendSocketMessage(conversationId, trimmed);
+    } else {
+      // REST fallback (no real-time echo, so append locally)
+      try {
+        const res = await sendMessageRest(conversationId, trimmed);
+        setMessages((prev) => [
+          ...prev,
+          { id: res.data.id, text: trimmed, mine: true, time: fmtTime(res.data.createdAt) },
+        ]);
+      } catch (_err) {
+        console.warn('[ChatScreen] Failed to send message');
+      }
+    }
   };
 
   return (
@@ -52,8 +114,10 @@ export default function ChatScreen() {
       </View>
 
       <FlatList
+        ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={[styles.bubbleRow, item.mine ? styles.rowMine : styles.rowTheirs]}>
