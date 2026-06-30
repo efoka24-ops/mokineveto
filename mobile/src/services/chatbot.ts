@@ -63,3 +63,61 @@ export const URGENCY_LABEL: Record<Urgency, string> = {
   MEDIUM: 'Modérée',
   HIGH: 'Élevée',
 };
+
+import { API_BASE_URL } from './config';
+
+/**
+ * Pré-analyse réelle via le backend (Claude vision). Envoie le texte des symptômes
+ * et une photo optionnelle. En cas d'échec (réseau, API non configurée), retombe
+ * sur le moteur de règles local pour ne jamais bloquer l'utilisateur.
+ */
+export async function preAnalyzeRemote(params: {
+  species: string;
+  symptoms: string;
+  photoUri?: string;
+  selectedKeys: string[];
+  token: string | null;
+}): Promise<PreAnalysis> {
+  try {
+    const form = new FormData();
+    form.append('species', params.species);
+    form.append('symptoms', params.symptoms);
+
+    if (params.photoUri) {
+      const filename = params.photoUri.split('/').pop() || 'photo.jpg';
+      const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      form.append('photo', {
+        uri: params.photoUri,
+        name: filename,
+        type: mimeType,
+      } as unknown as Blob);
+    }
+
+    const headers: Record<string, string> = {};
+    if (params.token) headers['Authorization'] = `Bearer ${params.token}`;
+
+    const res = await fetch(`${API_BASE_URL}/ai/pre-analysis`, {
+      method: 'POST',
+      headers,
+      body: form,
+    });
+
+    if (!res.ok) throw new Error(`AI ${res.status}`);
+
+    const json = await res.json();
+    const data = json.data;
+
+    return {
+      pathologies: data.suspectedConditions?.length ? data.suspectedConditions : ['Affection non spécifique'],
+      urgency: data.urgency || 'LOW',
+      advice: [data.orientation, data.recommendation].filter(Boolean).join(' '),
+      recommendTeleconsult: data.urgency !== 'LOW',
+    };
+  } catch (_err) {
+    console.warn('[chatbot] Remote AI failed, falling back to local rules');
+    return analyze(params.selectedKeys);
+  }
+}
+
+export const SPECIES_OPTIONS = ['Bovins', 'Ovins', 'Caprins', 'Porcins', 'Volailles', 'Autre'];
