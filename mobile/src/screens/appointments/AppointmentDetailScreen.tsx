@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -6,6 +6,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, spacing } from '../../theme';
 import { useAppointmentsStore } from '../../store/useAppointmentsStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { completeAppointment } from '../../services/api';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -15,6 +17,11 @@ export default function AppointmentDetailScreen() {
   const nav = useNavigation<Nav>();
   const { id } = useRoute<Rt>().params;
   const appt = useAppointmentsStore((s) => s.items.find((a) => a.id === id));
+  const reloadAppointments = useAppointmentsStore((s) => s.load);
+  const role = useAuthStore((s) => s.user?.role);
+  const [loading, setLoading] = useState(false);
+
+  const isVet = role === 'VETERINAIRE';
 
   if (!appt) {
     return (
@@ -25,20 +32,48 @@ export default function AppointmentDetailScreen() {
     );
   }
 
+  const onComplete = async () => {
+    try {
+      setLoading(true);
+      await completeAppointment(id);
+      await reloadAppointments();
+    } catch (_err) {
+      console.warn('[AppointmentDetailScreen] Failed to complete');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const footer = (() => {
+    if (appt.status === 'UPCOMING' && isVet) {
+      return <Button title="Marquer comme terminé" loading={loading} onPress={onComplete} />;
+    }
+    if (appt.status === 'UPCOMING') {
+      return (
+        <Button
+          title="Annuler le rendez-vous"
+          variant="blue"
+          onPress={() => nav.navigate('CancelAppointment', { id })}
+        />
+      );
+    }
+    if (appt.status === 'COMPLETED' && !isVet && !appt.hasReview) {
+      return (
+        <Button
+          title="Laisser un avis"
+          onPress={() => nav.navigate('Review', { appointmentId: id, vetId: appt.vetId })}
+        />
+      );
+    }
+    return undefined;
+  })();
+
   return (
-    <Screen
-      footer={
-        appt.status === 'UPCOMING' ? (
-          <Button title="Annuler le rendez-vous" variant="blue" onPress={() => nav.navigate('CancelAppointment', { id })} />
-        ) : appt.status === 'COMPLETED' ? (
-          <Button title="Laisser un avis" onPress={() => nav.navigate('Review', { appointmentId: id, vetId: appt.vetId })} />
-        ) : undefined
-      }
-    >
+    <Screen footer={footer}>
       <TopBar title="Rendez-vous" tint={colors.blue} />
       <View style={styles.header}>
-        <Text style={styles.vetName}>{appt.vetName}</Text>
-        <Text style={styles.specialty}>{appt.specialty}</Text>
+        <Text style={styles.vetName}>{isVet ? appt.eleveurName ?? 'Éleveur' : appt.vetName}</Text>
+        <Text style={styles.specialty}>{isVet ? appt.eleveurPhone ?? '' : appt.specialty}</Text>
       </View>
 
       <View style={styles.card}>

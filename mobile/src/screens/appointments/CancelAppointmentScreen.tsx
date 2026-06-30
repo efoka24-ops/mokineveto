@@ -12,6 +12,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Rt = RouteProp<RootStackParamList, 'CancelAppointment'>;
 
 const REASONS = ['Reprogrammation', 'Conditions météo', 'Imprévu', 'Autre'];
+const REASON_CODES = ['RESCHEDULE', 'WEATHER', 'UNEXPECTED', 'OTHER'];
 
 export default function CancelAppointmentScreen() {
   const nav = useNavigation<Nav>();
@@ -19,14 +20,17 @@ export default function CancelAppointmentScreen() {
   const cancel = useAppointmentsStore((s) => s.cancel);
   const [choice, setChoice] = useState(1);
   const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const onCancel = () => {
-    cancel(id);
+  const onCancel = async () => {
+    setLoading(true);
+    await cancel(id, REASON_CODES[choice], note);
+    setLoading(false);
     nav.navigate('Main', { screen: 'Agenda' });
   };
 
   return (
-    <Screen footer={<Button title="Annuler le rendez-vous" variant="blue" onPress={onCancel} />}>
+    <Screen footer={<Button title="Annuler le rendez-vous" variant="blue" loading={loading} onPress={onCancel} />}>
       <TopBar title="Annuler le rendez-vous" tint={colors.blue} />
       <Text style={styles.intro}>Indiquez la raison de l'annulation. Cela nous aide à améliorer le service.</Text>
 

@@ -10,14 +10,11 @@ export interface PaymentResult {
 
 export interface PaymentInitResponse {
   success: boolean;
-  data: {
-    paymentId: string;
-    paymentRequired: {
-      amount: number;
-      method: PaymentMethod;
-      reference: string;
-    };
-  };
+  paymentId: string;
+  reference: string;
+  amount: number;
+  phone: string;
+  method: PaymentMethod;
 }
 
 export interface PaymentCheckResponse {
@@ -82,40 +79,6 @@ export async function initOrderPayment(params: {
 
 export async function checkPaymentStatus(paymentId: string): Promise<PaymentCheckResponse> {
   return api.get<PaymentCheckResponse>(`/payments/status/${paymentId}`, true);
-}
-
-export async function pay(params: {
-  amount: number;
-  method: PaymentMethod;
-  phone?: string;
-}): Promise<PaymentResult> {
-  try {
-    const result = await initAppointmentPayment({
-      appointmentId: 'legacy-payment',
-      amount: params.amount,
-      method: params.method,
-      phone: params.phone,
-    });
-
-    if (result.success) {
-      return {
-        success: true,
-        reference: result.data.paymentRequired.reference,
-        message: 'Paiement initié',
-      };
-    }
-    return {
-      success: false,
-      reference: '',
-      message: 'Échec du paiement',
-    };
-  } catch (_err) {
-    return {
-      success: false,
-      reference: '',
-      message: 'Erreur de paiement',
-    };
-  }
 }
 
 export const METHOD_LABEL: Record<PaymentMethod, string> = {

@@ -21,16 +21,17 @@ export async function listFiches(): Promise<Fiche[]> {
   return response.data || [];
 }
 
-export async function getFiche(id: string): Promise<Fiche | undefined> {
+export interface FicheDetailResponse {
+  fiche?: Fiche;
+  unlocked: boolean;
+}
+
+export async function getFiche(id: string): Promise<FicheDetailResponse> {
   const response = await api.get<{
     success: boolean;
     data: Fiche;
     unlocked?: boolean;
     message?: string;
   }>(`/fiches/${id}`, true);
-  return response.data;
-}
-
-export function getFicheSync(_id: string): Fiche | undefined {
-  return undefined;
+  return { fiche: response.data, unlocked: response.unlocked ?? false };
 }

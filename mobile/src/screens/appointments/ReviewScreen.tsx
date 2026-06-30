@@ -4,24 +4,41 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { Button, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, spacing } from '../../theme';
-import { getVet, type Vet } from '../../services/vets';
+import { getVet, reviewAppointment, type Vet } from '../../services/api';
+import { useAppointmentsStore } from '../../store/useAppointmentsStore';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Rt = RouteProp<RootStackParamList, 'Review'>;
 
 export default function ReviewScreen() {
   const nav = useNavigation<any>();
-  const { vetId } = useRoute<Rt>().params;
+  const { appointmentId, vetId } = useRoute<Rt>().params;
   const [vet, setVet] = useState<Vet | null>(null);
   const [stars, setStars] = useState(4);
   const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  const reloadAppointments = useAppointmentsStore((s) => s.load);
 
   useEffect(() => {
-    getVet(vetId).then((v) => setVet(v ?? null));
+    getVet(vetId).then((response) => setVet(response?.data ?? null));
   }, [vetId]);
 
+  const onSubmit = async () => {
+    try {
+      setLoading(true);
+      await reviewAppointment(appointmentId, stars, comment || undefined);
+      await reloadAppointments();
+      nav.goBack();
+    } catch (_err) {
+      console.warn('[ReviewScreen] Failed to submit review');
+      nav.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Screen footer={<Button title="Ajouter l'avis" onPress={() => nav.goBack()} />}>
+    <Screen footer={<Button title="Ajouter l'avis" loading={loading} onPress={onSubmit} />}>
       <TopBar title="Avis" tint={colors.blue} />
       <Text style={styles.intro}>Partagez votre expérience pour aider les autres éleveurs.</Text>
 

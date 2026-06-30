@@ -58,14 +58,14 @@ export default function PaymentRecapScreen() {
         phone,
       });
 
-      if (!paymentRes.data?.paymentId) {
+      if (!paymentRes.paymentId) {
         throw new Error('Payment initiation failed');
       }
 
       let paymentSuccess = false;
-      for (let i = 0; i < 15; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const statusRes = await checkPaymentStatus(paymentRes.data.paymentId);
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const statusRes = await checkPaymentStatus(paymentRes.paymentId);
         if (statusRes.data?.status === 'SUCCEEDED') {
           paymentSuccess = true;
           break;

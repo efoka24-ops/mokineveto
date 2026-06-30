@@ -6,6 +6,29 @@ import { createCashout, verifyTransaction, getAccount, verifyWebhookSignature } 
 
 export const paymentsRouter = Router();
 
+/**
+ * Déclenche la requête Mobile Money réelle via Camoo pour un Payment PENDING.
+ * Le webhook Camoo (signé) confirmera ensuite SUCCEEDED/FAILED et finalisera la ressource.
+ * En cas d'échec réseau Camoo, on logge sans bloquer : le paiement reste PENDING
+ * et le mobile affichera l'échec après expiration du polling.
+ */
+async function triggerCashout(payment: {
+  amount: number;
+  phone: string | null;
+  camooReference: string | null;
+}): Promise<void> {
+  try {
+    if (!payment.camooReference || !payment.phone) return;
+    await createCashout({
+      amount: payment.amount,
+      phone_number: payment.phone,
+      external_reference: payment.camooReference,
+    });
+  } catch (err) {
+    console.error('[payments] triggerCashout échoué (paiement reste PENDING):', err);
+  }
+}
+
 const cashoutSchema = z.object({
   amount: z.number().positive(),
   phone_number: z.string().min(6),
@@ -64,6 +87,9 @@ paymentsRouter.post('/init-fiche-unlock', requireAuth, async (req, res) => {
       },
     });
 
+    // Trigger the real Mobile Money request via Camoo (the webhook confirms it later).
+    await triggerCashout(payment);
+
     // Return payment reference for mobile to send to Camoo
     res.json({
       success: true,
@@ -101,6 +127,8 @@ paymentsRouter.post('/init-order', requireAuth, async (req, res) => {
     });
 
     await prisma.order.update({ where: { id: orderId }, data: { paymentId: payment.id } });
+
+    await triggerCashout(payment);
 
     res.json({
       success: true,
@@ -142,6 +170,8 @@ paymentsRouter.post('/init-appointment', requireAuth, async (req, res) => {
       where: { id: appointmentId },
       data: { paymentId: payment.id },
     });
+
+    await triggerCashout(payment);
 
     res.json({
       success: true,
@@ -250,5 +280,29 @@ paymentsRouter.get('/webhook', async (req, res) => {
   } catch (err) {
     console.error('[webhook] Error:', err);
     return res.status(200).send('ok'); // Always 200 to not trigger retries
+  }
+});
+
+// ─── GET /payments/status/:id - Poll payment status (mobile) ───────────────────
+paymentsRouter.get('/status/:id', requireAuth, async (req, res) => {
+  try {
+    const payment = await prisma.payment.findUnique({ where: { id: req.params.id } });
+    if (!payment) return res.status(404).json({ success: false, error: 'Payment not found' });
+    if (payment.userId !== req.user!.id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: payment.id,
+        status: payment.status,
+        amount: payment.amount,
+        method: payment.method,
+        createdAt: payment.createdAt,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
   }
 });

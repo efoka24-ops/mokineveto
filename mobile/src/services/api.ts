@@ -153,3 +153,50 @@ export const getVetAvailability = (id: string, date: string) =>
 
 export const listSpecialties = () =>
   api.get<{ success: boolean; data: string[] }>('/vets/specialties');
+
+// ─── Appointments ──────────────────────────────────────────────────
+export interface ApiAppointment {
+  id: string;
+  eleveurId: string;
+  vetProfileId: string;
+  startsAt: string;
+  endsAt: string;
+  amount: number;
+  reason: string;
+  method?: string;
+  status: 'UPCOMING' | 'COMPLETED' | 'CANCELLED';
+  cancelReasonCode?: string;
+  cancelNote?: string;
+  cancelledAt?: string;
+  eleveur?: { id: string; name: string; phone: string; avatarUrl?: string };
+  vetProfile?: {
+    id: string;
+    specialty: string;
+    userId: string;
+    user: { id: string; name: string; avatarUrl?: string };
+  };
+  review?: { id: string; stars: number; comment?: string } | null;
+}
+
+export const listAppointments = () =>
+  api.get<{ success: boolean; data: ApiAppointment[] }>('/appointments', true);
+
+export const getAppointment = (id: string) =>
+  api.get<{ success: boolean; data: ApiAppointment }>(`/appointments/${id}`, true);
+
+export const cancelAppointment = (id: string, reasonCode: string, note?: string) =>
+  api.patch<{ success: boolean; data: ApiAppointment }>(
+    `/appointments/${id}/cancel`,
+    { reasonCode, note },
+    true
+  );
+
+export const completeAppointment = (id: string) =>
+  api.patch<{ success: boolean; data: ApiAppointment }>(`/appointments/${id}/complete`, {}, true);
+
+export const reviewAppointment = (id: string, stars: number, comment?: string) =>
+  api.post<{ success: boolean; data: unknown }>(
+    `/appointments/${id}/review`,
+    { stars, comment },
+    true
+  );

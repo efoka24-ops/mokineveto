@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fonts, radii, shadow, spacing } from '../../theme';
 import { useAppointmentsStore, type Appointment } from '../../store/useAppointmentsStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<Appointment['status'], string> = {
 export default function AgendaScreen() {
   const nav = useNavigation<Nav>();
   const { items, hydrate } = useAppointmentsStore();
+  const isVet = useAuthStore((s) => s.user?.role === 'VETERINAIRE');
 
   useEffect(() => {
     hydrate();
@@ -42,12 +44,12 @@ export default function AgendaScreen() {
           items.map((a) => (
             <Pressable key={a.id} style={styles.card} onPress={() => nav.navigate('AppointmentDetail', { id: a.id })}>
               <View style={styles.cardHead}>
-                <Text style={styles.vetName}>{a.vetName}</Text>
+                <Text style={styles.vetName}>{isVet ? a.eleveurName ?? 'Éleveur' : a.vetName}</Text>
                 <View style={[styles.badge, { backgroundColor: STATUS_COLOR[a.status] }]}>
                   <Text style={styles.badgeText}>{STATUS_LABEL[a.status]}</Text>
                 </View>
               </View>
-              <Text style={styles.specialty}>{a.specialty}</Text>
+              <Text style={styles.specialty}>{isVet ? a.reason : a.specialty}</Text>
               <View style={styles.metaRow}>
                 <Ionicons name="calendar-outline" size={14} color={colors.grey} />
                 <Text style={styles.meta}>{a.date}</Text>
