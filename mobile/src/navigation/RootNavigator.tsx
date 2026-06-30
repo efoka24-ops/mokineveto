@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuthStore } from '../store/useAuthStore';
+import { useSecurityStore } from '../store/useSecurityStore';
+import PinUnlockScreen from '../screens/security/PinUnlockScreen';
 
 import MainTabs from './MainTabs';
 
@@ -45,6 +47,15 @@ import FicheDetailScreen from '../screens/fiches/FicheDetailScreen';
 import HerdListScreen from '../screens/herd/HerdListScreen';
 import AddAnimalScreen from '../screens/herd/AddAnimalScreen';
 import AnimalDetailScreen from '../screens/herd/AnimalDetailScreen';
+import FarmListScreen from '../screens/herd/FarmListScreen';
+
+// Marketplace
+import ProductListScreen from '../screens/marketplace/ProductListScreen';
+import CartScreen from '../screens/marketplace/CartScreen';
+import OrderHistoryScreen from '../screens/marketplace/OrderHistoryScreen';
+
+// Sécurité
+import PinSetupScreen from '../screens/security/PinSetupScreen';
 
 // Paiement
 import PaymentMethodsScreen from '../screens/payment/PaymentMethodsScreen';
@@ -58,13 +69,21 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { user, hydrated, hydrate } = useAuthStore();
+  const { hasPin, hydrate: hydrateSecurity } = useSecurityStore();
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     hydrate();
-  }, [hydrate]);
+    hydrateSecurity();
+  }, [hydrate, hydrateSecurity]);
 
   if (!hydrated) {
     return <SplashScreen />;
+  }
+
+  // PIN gate : si un PIN est configuré et qu'un utilisateur est connecté, exiger le déverrouillage.
+  if (user && hasPin && !unlocked) {
+    return <PinUnlockScreen onUnlock={() => setUnlocked(true)} />;
   }
 
   return (
@@ -101,6 +120,11 @@ export default function RootNavigator() {
           <Stack.Screen name="HerdList" component={HerdListScreen} />
           <Stack.Screen name="AddAnimal" component={AddAnimalScreen} />
           <Stack.Screen name="AnimalDetail" component={AnimalDetailScreen} />
+          <Stack.Screen name="FarmList" component={FarmListScreen} />
+          <Stack.Screen name="ProductList" component={ProductListScreen} />
+          <Stack.Screen name="Cart" component={CartScreen} />
+          <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+          <Stack.Screen name="PinSetup" component={PinSetupScreen} />
         </Stack.Group>
       ) : (
         <Stack.Group>

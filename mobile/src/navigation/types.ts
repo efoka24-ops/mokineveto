@@ -53,6 +53,16 @@ export type RootStackParamList = {
   AddAnimal: undefined;
   AnimalDetail: { id: string };
 
+  // Marketplace
+  ProductList: undefined;
+  Cart: undefined;
+  OrderHistory: undefined;
+
+  // Multi-élevage / Sécurité
+  FarmList: undefined;
+  PinSetup: undefined;
+  PinUnlock: undefined;
+
   // Paiement
   PaymentMethods: undefined;
   AddCard: undefined;

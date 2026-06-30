@@ -103,6 +103,7 @@ export default function HomeScreen() {
           <QuickAction icon="sparkles-outline" label="Assistant IA" onPress={() => nav.navigate('Chatbot')} />
           <QuickAction icon="book-outline" label="Fiches" onPress={() => nav.navigate('FichesList')} />
           <QuickAction icon="albums-outline" label="Cheptel" onPress={() => nav.navigate('HerdList')} />
+          <QuickAction icon="storefront-outline" label="Marketplace" onPress={() => nav.navigate('ProductList')} />
         </View>
 
         {/* Categories */}

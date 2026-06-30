@@ -12,11 +12,13 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HerdListScreen() {
   const nav = useNavigation<Nav>();
-  const { animals, hydrate } = useHerdStore();
+  const { animals, farms, currentFarmId, hydrate } = useHerdStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  const currentFarm = farms.find((f) => f.id === currentFarmId);
 
   return (
     <Screen>
@@ -29,6 +31,11 @@ export default function HerdListScreen() {
         }
       />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
+        <Pressable style={styles.farmSwitch} onPress={() => nav.navigate('FarmList')}>
+          <Ionicons name="home-outline" size={18} color={colors.green} />
+          <Text style={styles.farmSwitchText}>{currentFarm ? currentFarm.name : 'Tous les élevages'}</Text>
+          <Ionicons name="swap-horizontal" size={18} color={colors.green} />
+        </Pressable>
         {animals.map((a) => (
           <Pressable key={a.id} style={styles.card} onPress={() => nav.navigate('AnimalDetail', { id: a.id })}>
             <View style={styles.iconCircle}>
@@ -54,6 +61,8 @@ export default function HerdListScreen() {
 
 const styles = StyleSheet.create({
   addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
+  farmSwitch: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.greenPale, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.md },
+  farmSwitchText: { flex: 1, fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.greenDark },
   card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.white, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md, ...shadow.soft },
   iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brown, alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.brown },

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, Alert } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Input, Screen, SocialRow, TopBar } from '../../components';
 import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { signInWithPassword } from '../../services/auth';
+import { useSecurityStore } from '../../store/useSecurityStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -14,6 +16,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const biometricEnabled = useSecurityStore((s) => s.biometricEnabled);
 
   const onLogin = async () => {
     setLoading(true);
@@ -24,6 +27,27 @@ export default function LoginScreen() {
       Alert.alert('Erreur', err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onBiometric = async () => {
+    if (!biometricEnabled) {
+      Alert.alert(
+        'Biométrie non configurée',
+        'Activez le déverrouillage biométrique dans Paramètres après votre première connexion.'
+      );
+      return;
+    }
+    try {
+      const res = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Connexion biométrique',
+      });
+      if (res.success) {
+        // Biometric only re-unlocks an existing local session; if none, prompt password.
+        Alert.alert('Connexion', 'Veuillez vous connecter avec votre mot de passe la première fois.');
+      }
+    } catch (_err) {
+      // ignore
     }
   };
 
@@ -51,7 +75,7 @@ export default function LoginScreen() {
         <Button title="Connexion" onPress={onLogin} loading={loading} style={styles.cta} />
 
         <Text style={styles.or}>ou</Text>
-        <SocialRow onBiometric={onLogin} />
+        <SocialRow onBiometric={onBiometric} />
 
         <Text style={styles.signup}>
           Pas de compte ?{' '}
