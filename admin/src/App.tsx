@@ -4,6 +4,10 @@ import { useAdminStore } from './store/useAdminStore';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import VetQueuePage from './pages/VetQueuePage';
+import EpidemioMapPage from './pages/EpidemioMapPage';
+import AlertsPage from './pages/AlertsPage';
+import MarketplacePage from './pages/MarketplacePage';
+import FichesPage from './pages/FichesPage';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAdminStore();
@@ -22,7 +26,19 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
               Dashboard
             </Link>
             <Link to="/vets/pending" className="hover:text-green-200">
-              Verify Vets
+              Vétérinaires
+            </Link>
+            <Link to="/fiches" className="hover:text-green-200">
+              Fiches
+            </Link>
+            <Link to="/alerts" className="hover:text-green-200">
+              Alertes
+            </Link>
+            <Link to="/epidemio" className="hover:text-green-200">
+              Épidémio
+            </Link>
+            <Link to="/marketplace" className="hover:text-green-200">
+              Marketplace
             </Link>
             <span className="text-sm">{user.name}</span>
             <button
@@ -63,6 +79,38 @@ export default function App() {
           element={
             <ProtectedLayout>
               <VetQueuePage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/fiches"
+          element={
+            <ProtectedLayout>
+              <FichesPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <ProtectedLayout>
+              <AlertsPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/epidemio"
+          element={
+            <ProtectedLayout>
+              <EpidemioMapPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/marketplace"
+          element={
+            <ProtectedLayout>
+              <MarketplacePage />
             </ProtectedLayout>
           }
         />

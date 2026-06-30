@@ -48,4 +48,42 @@ export const adminApi = {
 
   // Stats
   getStats: () => api.get('/admin/stats'),
+
+  // Epidemiology
+  getEpidemioAggregate: (since?: string) =>
+    api.get('/admin/epidemio/aggregate', { params: { since } }),
+
+  // Alerts (broadcast)
+  createAlert: (data: {
+    type: string;
+    title: string;
+    body: string;
+    region?: string | null;
+    ficheId?: string | null;
+    severity?: string;
+  }) => api.post('/alerts', data),
+
+  // Fiches CRUD
+  getFiches: () => api.get('/fiches'),
+  createFiche: (data: any) => api.post('/fiches', data),
+  updateFiche: (id: string, data: any) => api.patch(`/fiches/${id}`, data),
+  deleteFiche: (id: string) => api.delete(`/fiches/${id}`),
+
+  // Marketplace
+  getSuppliers: () => api.get('/admin/suppliers'),
+  createSupplier: (data: any) => api.post('/admin/suppliers', data),
+  updateSupplier: (id: string, data: any) => api.patch(`/admin/suppliers/${id}`, data),
+  deleteSupplier: (id: string) => api.delete(`/admin/suppliers/${id}`),
+  getProducts: (supplierId?: string) => api.get('/admin/products', { params: { supplierId } }),
+  createProduct: (data: any) => api.post('/admin/products', data),
+  updateProduct: (id: string, data: any) => api.patch(`/admin/products/${id}`, data),
+  deleteProduct: (id: string) => api.delete(`/admin/products/${id}`),
+  getOrders: () => api.get('/admin/orders'),
+  updateOrderStatus: (id: string, status: string) =>
+    api.patch(`/admin/orders/${id}/status`, { status }),
 };
+
+export const CAMEROON_REGIONS = [
+  'ADAMAOUA', 'CENTRE', 'EST', 'EXTREME_NORD', 'LITTORAL',
+  'NORD', 'NORD_OUEST', 'OUEST', 'SUD', 'SUD_OUEST',
+];
