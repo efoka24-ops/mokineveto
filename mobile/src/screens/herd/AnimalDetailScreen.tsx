@@ -49,7 +49,7 @@ export default function AnimalDetailScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Carnet de santé</Text>
-      {animal.health.map((e) => (
+      {(animal.healthEvents || []).map((e) => (
         <View key={e.id} style={styles.eventRow}>
           <View style={styles.eventIcon}>
             <Ionicons name="medkit" size={16} color={colors.white} />
@@ -60,7 +60,7 @@ export default function AnimalDetailScreen() {
           </View>
         </View>
       ))}
-      {animal.health.length === 0 ? <Text style={styles.empty}>Aucun événement de santé.</Text> : null}
+      {(animal.healthEvents || []).length === 0 ? <Text style={styles.empty}>Aucun événement de santé.</Text> : null}
 
       <Text style={styles.sectionTitle}>Ajouter un événement</Text>
       <Select

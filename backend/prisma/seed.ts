@@ -21,6 +21,13 @@ async function main() {
   await prisma.favorite.deleteMany();
   await prisma.healthEvent.deleteMany();
   await prisma.animal.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.supplier.deleteMany();
+  await prisma.healthReport.deleteMany();
+  await prisma.alert.deleteMany();
+  await prisma.farm.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.savedMoneyAccount.deleteMany();
   await prisma.availability.deleteMany();
@@ -56,6 +63,17 @@ async function main() {
     },
   });
   console.log('✓ Created ELEVEUR:', eleveur.email, '(GAROUA)');
+
+  // ===== DEFAULT FARM FOR MARLY (multi-élevage) =====
+  const farm = await prisma.farm.create({
+    data: {
+      userId: eleveur.id,
+      name: 'Élevage de Marly',
+      region: 'NORD',
+      isDefault: true,
+    },
+  });
+  console.log('✓ Created default Farm for Marly (NORD)');
 
   // ===== VETERINAIRE USER: EMMANUEL FOKA (GAROUA) =====
   const vetPassword = await hashPassword('foka123456');
@@ -111,6 +129,7 @@ async function main() {
     const animal = await prisma.animal.create({
       data: {
         userId: eleveur.id,
+        farmId: farm.id,
         name,
         species: ['Bovins', 'Bovins', 'Caprins'][idx],
         breed: ['Frisienne', 'Brahman', 'Sahel'][idx],
@@ -194,8 +213,9 @@ async function main() {
     },
   ];
 
+  const createdFiches = [];
   for (const fiche of fiches) {
-    await prisma.fiche.create({
+    const created = await prisma.fiche.create({
       data: {
         name: fiche.name,
         species: fiche.species,
@@ -206,8 +226,66 @@ async function main() {
         vetInfo: fiche.vetInfo,
       },
     });
+    createdFiches.push(created);
   }
   console.log(`✓ Created ${fiches.length} sample fiches`);
+
+  // ===== MARKETPLACE: Suppliers + Products =====
+  const supplier1 = await prisma.supplier.create({
+    data: { name: 'Vet Distribution Cameroun', phone: '+237699000111', region: 'NORD', active: true },
+  });
+  const supplier2 = await prisma.supplier.create({
+    data: { name: 'AgroVet Sahel', phone: '+237699000222', region: 'EXTREME_NORD', active: true },
+  });
+
+  await prisma.product.createMany({
+    data: [
+      { supplierId: supplier1.id, name: 'Vaccin fièvre aphteuse (dose)', category: 'Vaccins', price: 1500, unit: 'dose' },
+      { supplierId: supplier1.id, name: 'Vermifuge bovin', category: 'Antiparasitaires', price: 2500, unit: 'flacon' },
+      { supplierId: supplier1.id, name: 'Complément minéral bétail', category: 'Nutrition', price: 4000, unit: 'sac 5kg' },
+      { supplierId: supplier2.id, name: 'Antibiotique large spectre', category: 'Médicaments', price: 6000, unit: 'flacon' },
+      { supplierId: supplier2.id, name: 'Acaricide tiques', category: 'Antiparasitaires', price: 3200, unit: 'litre' },
+    ],
+  });
+  console.log('✓ Created sample Suppliers + Products');
+
+  // ===== EPIDEMIOLOGY: anonymized HealthReport demo data =====
+  const fievreAphteuse = createdFiches.find((f) => f.name === 'Fièvre aphteuse');
+  const theileriose = createdFiches.find((f) => f.name === 'Theilériose');
+  await prisma.healthReport.createMany({
+    data: [
+      { source: 'HEALTH_EVENT', ficheId: fievreAphteuse?.id, region: 'NORD', urgency: 'HIGH' },
+      { source: 'HEALTH_EVENT', ficheId: fievreAphteuse?.id, region: 'NORD', urgency: 'HIGH' },
+      { source: 'CHATBOT', ficheId: theileriose?.id, region: 'EXTREME_NORD', urgency: 'MEDIUM' },
+      { source: 'CHATBOT', ficheId: fievreAphteuse?.id, region: 'ADAMAOUA', urgency: 'MEDIUM' },
+      { source: 'HEALTH_EVENT', ficheId: theileriose?.id, region: 'CENTRE', urgency: 'LOW' },
+    ],
+  });
+  console.log('✓ Created sample HealthReports (épidémiologie)');
+
+  // ===== ALERTS: demo regional + national broadcast =====
+  await prisma.alert.createMany({
+    data: [
+      {
+        type: 'EPIDEMIC',
+        title: 'Recrudescence de fièvre aphteuse — région NORD',
+        body: 'Plusieurs cas suspects signalés autour de Garoua. Renforcez la surveillance et limitez les mouvements d\'animaux.',
+        region: 'NORD',
+        ficheId: fievreAphteuse?.id,
+        severity: 'CRITICAL',
+        createdById: admin.id,
+      },
+      {
+        type: 'SYSTEM',
+        title: 'Bienvenue sur MokineVeto',
+        body: 'Votre compte est prêt. Consultez les fiches techniques et planifiez vos rendez-vous vétérinaires.',
+        region: null,
+        severity: 'INFO',
+        createdById: admin.id,
+      },
+    ],
+  });
+  console.log('✓ Created sample Alerts');
 
   console.log('✅ Seeding complete!');
 }

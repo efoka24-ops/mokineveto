@@ -78,6 +78,43 @@ paymentsRouter.post('/init-fiche-unlock', requireAuth, async (req, res) => {
   }
 });
 
+// ─── POST /payments/init-order - Initiate marketplace order payment ─────────────
+paymentsRouter.post('/init-order', requireAuth, async (req, res) => {
+  const { orderId, method, phone } = req.body;
+
+  try {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    if (order.userId !== req.user!.id) return res.status(403).json({ success: false, error: 'Access denied' });
+    if (order.status !== 'PENDING') return res.status(400).json({ success: false, error: 'Order is not pending' });
+
+    const payment = await prisma.payment.create({
+      data: {
+        userId: req.user!.id,
+        purpose: 'ORDER',
+        method: method || 'ORANGE_MONEY',
+        amount: order.totalAmount,
+        phone: phone || req.user!.phone,
+        status: 'PENDING',
+        camooReference: `order-${orderId}-${Date.now()}`,
+      },
+    });
+
+    await prisma.order.update({ where: { id: orderId }, data: { paymentId: payment.id } });
+
+    res.json({
+      success: true,
+      paymentId: payment.id,
+      reference: payment.camooReference,
+      amount: payment.amount,
+      phone: payment.phone,
+      method: payment.method,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
 // ─── POST /payments/init-appointment - Initiate appointment payment ─────────────
 paymentsRouter.post('/init-appointment', requireAuth, async (req, res) => {
   const { appointmentId, method, phone } = req.body;
@@ -178,25 +215,35 @@ paymentsRouter.get('/webhook', async (req, res) => {
     // If successful, finalize associated resource
     if (paymentStatus === 'SUCCEEDED') {
       if (payment.purpose === 'FICHE_UNLOCK') {
-        // Finalize fiche unlock
-        const unlock = await prisma.ficheUnlock.findFirst({
-          where: { paymentId: payment.id },
-        });
-        if (unlock) {
-          console.log(`[webhook] Fiche unlocked: ${unlock.ficheId} for user ${payment.userId}`);
+        // Reference format: fiche-${ficheId}-${timestamp}. ficheId (cuid) never contains '-'.
+        const ficheId = reference.split('-')[1];
+        const existingUnlock = await prisma.ficheUnlock.findFirst({ where: { paymentId: payment.id } });
+        if (!existingUnlock && ficheId) {
+          await prisma.ficheUnlock.upsert({
+            where: { userId_ficheId: { userId: payment.userId, ficheId } },
+            update: { paymentId: payment.id },
+            create: { userId: payment.userId, ficheId, paymentId: payment.id },
+          });
         }
+        console.log(`[webhook] Fiche unlocked: ${ficheId} for user ${payment.userId}`);
       } else if (payment.purpose === 'APPOINTMENT') {
-        // Mark appointment as paid
-        const appointment = await prisma.appointment.findFirst({
-          where: { paymentId: payment.id },
-        });
+        const appointment = await prisma.appointment.findFirst({ where: { paymentId: payment.id } });
         if (appointment) {
           console.log(`[webhook] Appointment payment confirmed: ${appointment.id}`);
+        }
+      } else if (payment.purpose === 'ORDER') {
+        const order = await prisma.order.findFirst({ where: { paymentId: payment.id } });
+        if (order) {
+          await prisma.order.update({ where: { id: order.id }, data: { status: 'CONFIRMED' } });
+          console.log(`[webhook] Order confirmed: ${order.id}`);
         }
       }
     } else {
       console.log(`[webhook] Payment failed: ${reference}`);
-      // Could cleanup ficheUnlock or mark appointment as unpaid
+      if (payment.purpose === 'ORDER') {
+        const order = await prisma.order.findFirst({ where: { paymentId: payment.id } });
+        if (order) await prisma.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      }
     }
 
     return res.status(200).send('ok');

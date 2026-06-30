@@ -5,25 +5,26 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, spacing } from '../../theme';
-import { getVet, type Vet } from '../../services/vets';
+import { getVet, getVetAvailability, type Vet } from '../../services/api';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Rt = RouteProp<RootStackParamList, 'Schedule'>;
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-const SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '13:30', '14:30', '15:00'];
 
 export default function ScheduleScreen() {
   const nav = useNavigation<Nav>();
   const { vetId } = useRoute<Rt>().params;
   const [vet, setVet] = useState<Vet | null>(null);
   const [dayIdx, setDayIdx] = useState(2);
-  const [slot, setSlot] = useState('10:00');
+  const [slot, setSlot] = useState('');
+  const [slots, setSlots] = useState<string[]>([]);
   const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getVet(vetId).then((v) => setVet(v ?? null));
+    getVet(vetId).then((response) => setVet(response?.data ?? null));
   }, [vetId]);
 
   const week = useMemo(() => {
@@ -31,16 +32,47 @@ export default function ScheduleScreen() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      return { dow: DAYS[(d.getDay() + 6) % 7], day: d.getDate() };
+      return { date: d, dow: DAYS[(d.getDay() + 6) % 7], day: d.getDate() };
     });
   }, []);
 
-  const confirm = () =>
+  useEffect(() => {
+    const loadSlots = async () => {
+      try {
+        setLoading(true);
+        const targetDate = week[dayIdx]?.date;
+        if (!targetDate) return;
+
+        const isoDate = targetDate.toISOString().split('T')[0];
+        const response = await getVetAvailability(vetId, isoDate);
+        const availableSlots = response.data?.slots || [];
+        setSlots(availableSlots);
+        if (availableSlots.length > 0) {
+          setSlot(availableSlots[0]);
+        }
+      } catch (_err) {
+        console.warn('[ScheduleScreen] Failed to load availability');
+        setSlots([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSlots();
+  }, [dayIdx, vetId, week]);
+
+  const confirm = () => {
+    const selectedDate = week[dayIdx];
+    if (!selectedDate || !slot) return;
+
     nav.navigate('PaymentRecap', {
       vetId,
       amount: vet?.hourlyRate ?? 8000,
-      slot: `${week[dayIdx]?.dow} ${week[dayIdx]?.day} · ${slot}`,
+      date: selectedDate.date.toISOString().split('T')[0],
+      time: slot,
+      reason,
     });
+  };
 
   return (
     <Screen bg={colors.white} footer={<Button title="Continuer" variant="blue" onPress={confirm} />}>
@@ -62,15 +94,21 @@ export default function ScheduleScreen() {
 
         <Text style={styles.sectionTitle}>Créneaux disponibles</Text>
         <View style={styles.slots}>
-          {SLOTS.map((s) => (
-            <Pressable
-              key={s}
-              style={[styles.slot, s === slot && styles.slotActive]}
-              onPress={() => setSlot(s)}
-            >
-              <Text style={[styles.slotText, s === slot && styles.slotTextActive]}>{s}</Text>
-            </Pressable>
-          ))}
+          {loading ? (
+            <Text style={styles.slotText}>Chargement…</Text>
+          ) : slots.length > 0 ? (
+            slots.map((s) => (
+              <Pressable
+                key={s}
+                style={[styles.slot, s === slot && styles.slotActive]}
+                onPress={() => setSlot(s)}
+              >
+                <Text style={[styles.slotText, s === slot && styles.slotTextActive]}>{s}</Text>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={styles.slotText}>Aucun créneau disponible</Text>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Décrivez le problème</Text>

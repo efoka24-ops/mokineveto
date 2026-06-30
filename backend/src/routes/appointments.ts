@@ -198,7 +198,7 @@ appointmentsRouter.patch('/:id/cancel', requireAuth, async (req, res) => {
 });
 
 // ─── PATCH /appointments/:id/complete - Mark as completed ──────────────────────
-appointmentsRouter.patch('/:id/complete', requireRole('VETERINAIRE', 'ADMIN'), async (req, res) => {
+appointmentsRouter.patch('/:id/complete', requireAuth, requireRole('VETERINAIRE', 'ADMIN'), async (req, res) => {
   try {
     const appointment = await prisma.appointment.findUnique({
       where: { id: req.params.id },
@@ -230,7 +230,7 @@ appointmentsRouter.patch('/:id/complete', requireRole('VETERINAIRE', 'ADMIN'), a
 });
 
 // ─── POST /appointments/:id/review - Add review ───────────────────────────────
-appointmentsRouter.post('/:id/review', requireRole('ELEVEUR'), async (req, res) => {
+appointmentsRouter.post('/:id/review', requireAuth, requireRole('ELEVEUR'), async (req, res) => {
   const { stars, comment } = req.body;
 
   try {

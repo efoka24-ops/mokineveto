@@ -1,7 +1,13 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { signup as signupApi, login as loginApi, updateProfile as updateProfileApi, SignupPayload, LoginPayload, UpdateProfilePayload } from '../services/api';
+
+// expo-secure-store has no web implementation; fall back to AsyncStorage there.
+const secureStorage = Platform.OS === 'web'
+  ? { setItemAsync: AsyncStorage.setItem, getItemAsync: AsyncStorage.getItem, deleteItemAsync: AsyncStorage.removeItem }
+  : SecureStore;
 
 export type Role = 'ELEVEUR' | 'VETERINAIRE' | 'ADMIN';
 
@@ -41,7 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hydrate: async () => {
     try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const token = await secureStorage.getItemAsync(TOKEN_KEY);
       const userJson = await AsyncStorage.getItem(USER_KEY);
       if (token && userJson) {
         const user = JSON.parse(userJson);
@@ -58,7 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await signupApi(payload);
-      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      await secureStorage.setItemAsync(TOKEN_KEY, res.token);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.user));
       set({ user: res.user, token: res.token, loading: false });
     } catch (err) {
@@ -72,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await loginApi(payload);
-      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      await secureStorage.setItemAsync(TOKEN_KEY, res.token);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.user));
       set({ user: res.user, token: res.token, loading: false });
     } catch (err) {
@@ -97,7 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await secureStorage.deleteItemAsync(TOKEN_KEY);
       await AsyncStorage.removeItem(USER_KEY);
     } catch {
       // ignore

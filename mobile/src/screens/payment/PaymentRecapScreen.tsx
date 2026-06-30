@@ -6,10 +6,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, TopBar } from '../../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, radii, spacing } from '../../theme';
-import { getVet, type Vet } from '../../services/vets';
-import { pay, METHOD_LABEL } from '../../services/payment';
+import { getVet, type Vet } from '../../services/api';
+import { initAppointmentPayment, checkPaymentStatus, METHOD_LABEL } from '../../services/payment';
 import { usePaymentStore } from '../../store/usePaymentStore';
-import { useAppointmentsStore } from '../../store/useAppointmentsStore';
+import { api } from '../../services/api';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -17,42 +17,81 @@ type Rt = RouteProp<RootStackParamList, 'PaymentRecap'>;
 
 export default function PaymentRecapScreen() {
   const nav = useNavigation<Nav>();
-  const { vetId, amount, slot } = useRoute<Rt>().params;
+  const { vetId, amount, date, time, reason } = useRoute<Rt>().params;
   const [vet, setVet] = useState<Vet | null>(null);
   const [loading, setLoading] = useState(false);
   const { method, phone } = usePaymentStore();
-  const addAppointment = useAppointmentsStore((s) => s.add);
 
   useEffect(() => {
-    getVet(vetId).then((v) => setVet(v ?? null));
+    getVet(vetId).then((response) => setVet(response?.data ?? null));
   }, [vetId]);
 
-  const [datePart, timePart] = (slot ?? 'Lun 24 · 10:00').split(' · ');
-
   const onPay = async () => {
-    setLoading(true);
-    const res = await pay({ amount, method, phone });
-    setLoading(false);
-    if (res.success) {
-      addAppointment({
-        id: res.reference,
-        vetId,
-        vetName: vet?.name ?? 'Vétérinaire',
-        specialty: vet?.specialty ?? '',
-        date: datePart ?? '',
-        time: timePart ?? '',
+    try {
+      setLoading(true);
+
+      const startTime = time ? `${time}:00` : '10:00:00';
+      const endTime = time ? `${time.split(':')[0]}:30:00` : '10:30:00';
+      const startsAt = new Date(`${date}T${startTime}`).toISOString();
+      const endsAt = new Date(`${date}T${endTime}`).toISOString();
+
+      const appointmentRes = await api.post<{ success: boolean; data: { id: string } }>(
+        '/appointments',
+        {
+          vetProfileId: vetId,
+          startsAt,
+          endsAt,
+          reason: reason || 'Consultation',
+          method: 'IN_PERSON',
+        },
+        true
+      );
+
+      if (!appointmentRes.data?.id) {
+        throw new Error('Appointment creation failed');
+      }
+
+      const paymentRes = await initAppointmentPayment({
+        appointmentId: appointmentRes.data.id,
         amount,
-        reason: 'Consultation',
-        method: METHOD_LABEL[method],
-        status: 'UPCOMING',
+        method,
+        phone,
       });
+
+      if (!paymentRes.data?.paymentId) {
+        throw new Error('Payment initiation failed');
+      }
+
+      let paymentSuccess = false;
+      for (let i = 0; i < 15; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const statusRes = await checkPaymentStatus(paymentRes.data.paymentId);
+        if (statusRes.data?.status === 'SUCCEEDED') {
+          paymentSuccess = true;
+          break;
+        }
+        if (statusRes.data?.status === 'FAILED') {
+          break;
+        }
+      }
+
+      nav.navigate('PaymentResult', {
+        success: paymentSuccess,
+        vetName: vet?.name,
+        date,
+        time,
+      });
+    } catch (_err) {
+      console.error('[PaymentRecapScreen] Payment error:', _err);
+      nav.navigate('PaymentResult', {
+        success: false,
+        vetName: vet?.name,
+        date,
+        time,
+      });
+    } finally {
+      setLoading(false);
     }
-    nav.navigate('PaymentResult', {
-      success: res.success,
-      vetName: vet?.name,
-      date: datePart,
-      time: timePart,
-    });
   };
 
   return (
@@ -72,9 +111,9 @@ export default function PaymentRecapScreen() {
         </View>
 
         <View style={styles.divider} />
-        <Row label="Date / Heure" value={`${datePart} / ${timePart}`} />
-        <Row label="Durée" value="1 heure" />
-        <Row label="Réservation pour" value="Consultation" />
+        <Row label="Date / Heure" value={`${date} / ${time}`} />
+        <Row label="Durée" value="30 minutes" />
+        <Row label="Raison" value={reason || 'Consultation'} />
         <View style={styles.divider} />
         <Row label="Montant" value={`${amount.toLocaleString('fr-FR')} XAF`} />
         <Row label="Total" value={`${amount.toLocaleString('fr-FR')} XAF`} bold />

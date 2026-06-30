@@ -17,13 +17,15 @@ import { prisma } from '../lib/prisma.js';
 
 export const animalsRouter = Router();
 
-// ─── GET /animals - List user's animals ───────────────────────────────────────
+// ─── GET /animals - List user's animals (optionally filtered by farmId) ──────
 animalsRouter.get('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
+    const { farmId } = req.query;
     const animals = await prisma.animal.findMany({
-      where: { userId },
+      where: { userId, ...(farmId ? { farmId: farmId as string } : {}) },
       include: { healthEvents: { orderBy: { createdAt: 'desc' } } },
+      orderBy: { createdAt: 'desc' },
     });
 
     res.json({ success: true, data: animals });
@@ -34,16 +36,26 @@ animalsRouter.get('/', requireAuth, async (req, res) => {
 
 // ─── POST /animals - Create animal ────────────────────────────────────────────
 animalsRouter.post('/', requireAuth, async (req, res) => {
-  const { name, species, breed, sex, age, robe } = req.body;
+  const { name, species, breed, sex, age, robe, farmId } = req.body;
 
   try {
     if (!name || !species || !sex) {
       return res.status(400).json({ success: false, error: 'Missing required fields: name, species, sex' });
     }
 
+    let resolvedFarmId = farmId || null;
+    if (!resolvedFarmId) {
+      const defaultFarm = await prisma.farm.findFirst({
+        where: { userId: req.user!.id },
+        orderBy: { isDefault: 'desc' },
+      });
+      resolvedFarmId = defaultFarm?.id ?? null;
+    }
+
     const animal = await prisma.animal.create({
       data: {
         userId: req.user!.id,
+        farmId: resolvedFarmId,
         name,
         species,
         breed: breed || '',
@@ -84,7 +96,7 @@ animalsRouter.get('/:id', requireAuth, async (req, res) => {
 
 // ─── PATCH /animals/:id - Update animal ──────────────────────────────────────
 animalsRouter.patch('/:id', requireAuth, async (req, res) => {
-  const { name, species, breed, sex, age, robe } = req.body;
+  const { name, species, breed, sex, age, robe, farmId } = req.body;
 
   try {
     const animal = await prisma.animal.findUnique({ where: { id: req.params.id } });
@@ -106,6 +118,7 @@ animalsRouter.patch('/:id', requireAuth, async (req, res) => {
         ...(sex && { sex }),
         ...(age && { age }),
         ...(robe && { robe }),
+        ...(farmId !== undefined && { farmId }),
       },
       include: { healthEvents: { orderBy: { createdAt: 'desc' } } },
     });
@@ -160,10 +173,10 @@ animalsRouter.get('/:id/health-events', requireAuth, async (req, res) => {
 
 // ─── POST /animals/:id/health-events - Add health event ───────────────────────
 animalsRouter.post('/:id/health-events', requireAuth, async (req, res) => {
-  const { type, label, date } = req.body;
+  const { type, label, date, nextDueAt, ficheId } = req.body;
 
   try {
-    const animal = await prisma.animal.findUnique({ where: { id: req.params.id } });
+    const animal = await prisma.animal.findUnique({ where: { id: req.params.id }, include: { farm: true } });
 
     if (!animal) {
       return res.status(404).json({ success: false, error: 'Animal not found' });
@@ -183,8 +196,17 @@ animalsRouter.post('/:id/health-events', requireAuth, async (req, res) => {
         type,
         label,
         date: date || new Date().toISOString().split('T')[0],
+        nextDueAt: nextDueAt ? new Date(nextDueAt) : null,
+        ficheId: ficheId || null,
       },
     });
+
+    // Signal épidémiologique anonymisé : un traitement lié à une pathologie connue.
+    if (type === 'TRAITEMENT' && ficheId && animal.farm) {
+      await prisma.healthReport.create({
+        data: { source: 'HEALTH_EVENT', ficheId, region: animal.farm.region, urgency: 'MEDIUM' },
+      });
+    }
 
     res.json({ success: true, data: event });
   } catch (err) {

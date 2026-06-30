@@ -55,7 +55,7 @@ export default function SignupScreen() {
       }
 
       await signUp(payload);
-      nav.replace('App');
+      // RootNavigator switches to the Main stack reactively once the store's user is set.
     } catch (err) {
       Alert.alert('Erreur', err instanceof Error ? err.message : 'Signup failed');
     } finally {

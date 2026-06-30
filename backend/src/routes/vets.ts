@@ -126,9 +126,28 @@ vetsRouter.get('/:id/availability', async (req: Request, res: Response) => {
       current += template.slotMinutes;
     }
 
-    // TODO: Filter out booked slots (check Appointment table)
+    // Filter out slots already booked for that day
+    const dayStart = new Date(requestedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
 
-    return res.json({ success: true, data: { slots } });
+    const booked = await prisma.appointment.findMany({
+      where: {
+        vetProfileId: req.params.id,
+        status: { not: 'CANCELLED' },
+        startsAt: { gte: dayStart, lt: dayEnd },
+      },
+      select: { startsAt: true },
+    });
+
+    const bookedTimes = new Set(
+      booked.map((a) => `${a.startsAt.getHours().toString().padStart(2, '0')}:${a.startsAt.getMinutes().toString().padStart(2, '0')}`),
+    );
+
+    const availableSlots = slots.filter((s) => !bookedTimes.has(s));
+
+    return res.json({ success: true, data: { slots: availableSlots } });
   } catch (error) {
     console.error('[vets/availability]', error);
     return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR' } });

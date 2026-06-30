@@ -19,7 +19,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signInWithPassword(email, password);
-      nav.replace('App');
+      // RootNavigator switches to the Main stack reactively once the store's user is set.
     } catch (err) {
       Alert.alert('Erreur', err instanceof Error ? err.message : 'Login failed');
     } finally {

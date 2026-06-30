@@ -31,7 +31,7 @@ export default function AppointmentDetailScreen() {
         appt.status === 'UPCOMING' ? (
           <Button title="Annuler le rendez-vous" variant="blue" onPress={() => nav.navigate('CancelAppointment', { id })} />
         ) : appt.status === 'COMPLETED' ? (
-          <Button title="Laisser un avis" onPress={() => nav.navigate('Review', { vetId: appt.vetId })} />
+          <Button title="Laisser un avis" onPress={() => nav.navigate('Review', { appointmentId: id, vetId: appt.vetId })} />
         ) : undefined
       }
     >

@@ -14,6 +14,13 @@ import { animalsRouter } from './routes/animals.js';
 import { fichesRouter } from './routes/fiches.js';
 import { chatRouter } from './routes/chat.js';
 import { adminRouter } from './routes/admin.js';
+import { farmsRouter } from './routes/farms.js';
+import { uploadsRouter, uploadsDir } from './routes/uploads.js';
+import { aiRouter } from './routes/ai.js';
+import { alertsRouter } from './routes/alerts.js';
+import { notificationsRouter } from './routes/notifications.js';
+import { marketplaceRouter } from './routes/marketplace.js';
+import { startCronJobs } from './lib/cron.js';
 import { verifySmtp } from './services/mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,6 +36,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/', (_req, res) => res.json({ name: config.appName, status: 'ok', version: '1.0.0' }));
 app.get('/health', async (_req, res) => {
@@ -55,6 +63,12 @@ app.use('/animals', animalsRouter);
 app.use('/fiches', fichesRouter);
 app.use('/chat', chatRouter);
 app.use('/admin', adminRouter);
+app.use('/farms', farmsRouter);
+app.use('/uploads', uploadsRouter);
+app.use('/ai', aiRouter);
+app.use('/alerts', alertsRouter);
+app.use('/notifications', notificationsRouter);
+app.use('/marketplace', marketplaceRouter);
 
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } }));
@@ -62,4 +76,5 @@ app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NO
 httpServer.listen(config.port, () => {
   console.log(`[${config.appName}] listening on port ${config.port} (${config.nodeEnv})`);
   console.log(`[socket.io] real-time chat enabled`);
+  startCronJobs();
 });

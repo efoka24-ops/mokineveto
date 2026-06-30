@@ -8,13 +8,13 @@
  * - GET /admin/stats - dashboard statistics
  */
 import { Router } from 'express';
-import { requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 export const adminRouter = Router();
 
-// All admin routes require ADMIN role
-adminRouter.use(requireRole('ADMIN'));
+// All admin routes require a valid JWT + ADMIN role
+adminRouter.use(requireAuth, requireRole('ADMIN'));
 
 // ─── GET /admin/vets/pending - List pending vet verifications ─────────────────
 adminRouter.get('/vets/pending', async (_req, res) => {
@@ -208,6 +208,166 @@ adminRouter.get('/stats', async (_req, res) => {
         recentUsers,
       },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+// ─── GET /admin/epidemio/aggregate - Anonymized epidemiology aggregate ───────
+// Comptage par région + pathologie (ficheId), jamais de userId exposé.
+adminRouter.get('/epidemio/aggregate', async (req, res) => {
+  try {
+    const since = req.query.since
+      ? new Date(req.query.since as string)
+      : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 derniers jours par défaut
+
+    const reports = await prisma.healthReport.findMany({
+      where: { createdAt: { gte: since } },
+      select: { region: true, ficheId: true, urgency: true },
+    });
+
+    const byRegion: Record<string, { total: number; high: number; byFiche: Record<string, number> }> = {};
+    for (const r of reports) {
+      const bucket = (byRegion[r.region] ??= { total: 0, high: 0, byFiche: {} });
+      bucket.total += 1;
+      if (r.urgency === 'HIGH') bucket.high += 1;
+      if (r.ficheId) bucket.byFiche[r.ficheId] = (bucket.byFiche[r.ficheId] ?? 0) + 1;
+    }
+
+    res.json({ success: true, data: byRegion });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+// ─── Suppliers CRUD (Marketplace) ─────────────────────────────────────────────
+adminRouter.get('/suppliers', async (_req, res) => {
+  try {
+    const suppliers = await prisma.supplier.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, data: suppliers });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.post('/suppliers', async (req, res) => {
+  const { name, phone, region, active } = req.body;
+  try {
+    if (!name) return res.status(400).json({ success: false, error: 'Missing required field: name' });
+    const supplier = await prisma.supplier.create({ data: { name, phone, region, active: active ?? true } });
+    res.json({ success: true, data: supplier });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.patch('/suppliers/:id', async (req, res) => {
+  const { name, phone, region, active } = req.body;
+  try {
+    const supplier = await prisma.supplier.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name && { name }),
+        ...(phone !== undefined && { phone }),
+        ...(region !== undefined && { region }),
+        ...(active !== undefined && { active }),
+      },
+    });
+    res.json({ success: true, data: supplier });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.delete('/suppliers/:id', async (req, res) => {
+  try {
+    await prisma.supplier.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+// ─── Products CRUD (Marketplace) ──────────────────────────────────────────────
+adminRouter.get('/products', async (req, res) => {
+  try {
+    const { supplierId } = req.query;
+    const products = await prisma.product.findMany({
+      where: supplierId ? { supplierId: supplierId as string } : undefined,
+      include: { supplier: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, data: products });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.post('/products', async (req, res) => {
+  const { supplierId, name, category, price, unit, imageUrl, active } = req.body;
+  try {
+    if (!supplierId || !name || !category || price === undefined || !unit) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+    const product = await prisma.product.create({
+      data: { supplierId, name, category, price, unit, imageUrl, active: active ?? true },
+    });
+    res.json({ success: true, data: product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.patch('/products/:id', async (req, res) => {
+  const { name, category, price, unit, imageUrl, active } = req.body;
+  try {
+    const product = await prisma.product.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name && { name }),
+        ...(category && { category }),
+        ...(price !== undefined && { price }),
+        ...(unit && { unit }),
+        ...(imageUrl !== undefined && { imageUrl }),
+        ...(active !== undefined && { active }),
+      },
+    });
+    res.json({ success: true, data: product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.delete('/products/:id', async (req, res) => {
+  try {
+    await prisma.product.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+// ─── Orders (Marketplace) - status changes ────────────────────────────────────
+adminRouter.get('/orders', async (_req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      include: { items: { include: { product: true } }, supplier: true, user: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ success: true, data: orders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
+  }
+});
+
+adminRouter.patch('/orders/:id/status', async (req, res) => {
+  const { status } = req.body;
+  try {
+    if (!['PENDING', 'CONFIRMED', 'DELIVERED', 'CANCELLED'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status' });
+    }
+    const order = await prisma.order.update({ where: { id: req.params.id }, data: { status } });
+    res.json({ success: true, data: order });
   } catch (err) {
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed' });
   }

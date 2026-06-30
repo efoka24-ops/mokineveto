@@ -34,6 +34,22 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
   });
 }
 
+export async function sendAlertEmail(to: string, title: string, body: string): Promise<void> {
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#3DB54A;margin-bottom:4px">MokineVeto — Alerte</h2>
+      <h3 style="color:#4A2317">${title}</h3>
+      <p style="color:#4A2317;white-space:pre-line">${body}</p>
+    </div>`;
+  await getTransporter().sendMail({
+    from: config.smtp.from,
+    to,
+    subject: `MokineVeto — ${title}`,
+    text: body,
+    html,
+  });
+}
+
 export async function verifySmtp(): Promise<boolean> {
   try {
     await getTransporter().verify();

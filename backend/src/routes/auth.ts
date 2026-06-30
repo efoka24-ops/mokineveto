@@ -25,6 +25,11 @@ const signupSchema = z.object({
   ordreNumber: z.string().optional(),
   professional: z.boolean().optional(),
   focus: z.string().optional(),
+  // Eleveur-specific: region of their first farm (multi-élevage)
+  region: z.enum([
+    'ADAMAOUA', 'CENTRE', 'EST', 'EXTREME_NORD', 'LITTORAL',
+    'NORD', 'NORD_OUEST', 'OUEST', 'SUD', 'SUD_OUEST',
+  ]).optional(),
 });
 
 authRouter.post('/signup', async (req: Request, res: Response) => {
@@ -46,6 +51,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     ordreNumber,
     professional,
     focus,
+    region,
   } = parsed.data;
 
   try {
@@ -78,9 +84,8 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     });
 
     // If VETERINAIRE, create pending VetProfile
-    let vetProfile;
     if (role === 'VETERINAIRE') {
-      vetProfile = await prisma.vetProfile.create({
+      await prisma.vetProfile.create({
         data: {
           userId: user.id,
           specialty: specialty || 'Général',
@@ -92,6 +97,18 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
           focus: focus || 'À définir',
           ordreNumber: ordreNumber || 'En attente de vérification',
           verification: 'PENDING',
+        },
+      });
+    }
+
+    // If ELEVEUR, create a default Farm (multi-élevage base + signal région épidémio)
+    if (role === 'ELEVEUR') {
+      await prisma.farm.create({
+        data: {
+          userId: user.id,
+          name: `Élevage de ${name}`,
+          region: (region as any) || 'CENTRE',
+          isDefault: true,
         },
       });
     }

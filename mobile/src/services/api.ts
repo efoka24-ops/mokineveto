@@ -148,13 +148,8 @@ export const listVets = (filters?: { gender?: string; specialty?: string; topRat
 export const getVet = (id: string) =>
   api.get<{ success: boolean; data: Vet }>(`/vets/${id}`);
 
-export interface AvailabilitySlot {
-  start: string;
-  end: string;
-}
-
 export const getVetAvailability = (id: string, date: string) =>
-  api.get<{ success: boolean; slots: AvailabilitySlot[] }>(`/vets/${id}/availability?date=${date}`);
+  api.get<{ success: boolean; data: { slots: string[] } }>(`/vets/${id}/availability?date=${date}`);
 
 export const listSpecialties = () =>
   api.get<{ success: boolean; data: string[] }>('/vets/specialties');

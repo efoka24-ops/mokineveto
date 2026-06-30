@@ -33,7 +33,45 @@ enum PaymentStatus {
 enum PaymentPurpose {
   APPOINTMENT
   FICHE_UNLOCK
+  ORDER
   OTHER
+}
+
+enum Region {
+  ADAMAOUA
+  CENTRE
+  EST
+  EXTREME_NORD
+  LITTORAL
+  NORD
+  NORD_OUEST
+  OUEST
+  SUD
+  SUD_OUEST
+}
+
+enum ReportSource {
+  CHATBOT
+  HEALTH_EVENT
+}
+
+enum AlertType {
+  EPIDEMIC
+  REMINDER
+  SYSTEM
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
 }
 
 enum PaymentMethod {
@@ -69,11 +107,14 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  expoPushToken String?
+
   // Relations
   vetProfile    VetProfile?
   appointmentsAsEleveur Appointment[] @relation("eleveur")
   favorites     Favorite[]
   animals       Animal[]
+  farms         Farm[]
   reviews       Review[]
   payments      Payment[]
   ficheUnlocks  FicheUnlock[]
@@ -81,6 +122,27 @@ model User {
   messagesAsAuthor Message[] @relation("author")
   conversationsAsEleveur Conversation[] @relation("eleveur")
   savedAccounts SavedMoneyAccount[]
+  orders        Order[]
+  alertsCreated Alert[] @relation("alertCreatedBy")
+}
+
+model Farm {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  region    Region
+  isDefault Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  animals   Animal[]
+
+  @@index([userId])
+  @@index([region])
 }
 
 model VetProfile {
@@ -132,6 +194,9 @@ model Animal {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  farmId    String?
+  farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: SetNull)
+
   name      String
   species   String
   breed     String
@@ -144,6 +209,8 @@ model Animal {
 
   // Relations
   healthEvents HealthEvent[]
+
+  @@index([farmId])
 }
 
 model HealthEvent {
@@ -155,7 +222,119 @@ model HealthEvent {
   label     String
   date      String   // Free text, e.g. "12/03/2026"
 
+  nextDueAt DateTime? // For VACCIN/VERMIFUGE reminders
+  ficheId   String?   // Linked pathology, if relevant
+
   createdAt DateTime @default(now())
+}
+
+// Anonymized epidemiology signal: never exposes userId in aggregation queries.
+model HealthReport {
+  id        String   @id @default(cuid())
+  source    ReportSource
+  ficheId   String?
+  region    Region
+  urgency   String   // 'LOW' | 'MEDIUM' | 'HIGH'
+
+  createdAt DateTime @default(now())
+
+  @@index([region])
+  @@index([ficheId])
+  @@index([createdAt])
+}
+
+model Alert {
+  id            String   @id @default(cuid())
+  type          AlertType
+  title         String
+  body          String   @db.Text
+  region        Region?  // null = national
+  ficheId       String?
+  severity      AlertSeverity @default(INFO)
+
+  createdById   String
+  createdBy     User     @relation("alertCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime?
+
+  @@index([region])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  region    Region?
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products  Product[]
+  orders    Order[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  name        String
+  category    String
+  price       Int      // XAF
+  unit        String
+  imageUrl    String?
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  orderItems  OrderItem[]
+
+  @@index([supplierId])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  status      OrderStatus @default(PENDING)
+  totalAmount Int      // XAF
+
+  paymentId   String?  @unique
+  payment     Payment? @relation(fields: [paymentId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  items       OrderItem[]
+
+  @@index([userId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  qty       Int
+  unitPrice Int      // XAF snapshot at order time
+
+  @@index([orderId])
 }
 
 model Appointment {
@@ -278,6 +457,7 @@ model Payment {
   // Relations
   appointment     Appointment?
   ficheUnlock     FicheUnlock?
+  order           Order?
 
   @@index([userId])
   @@index([camooReference])

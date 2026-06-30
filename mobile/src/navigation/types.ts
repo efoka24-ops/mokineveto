@@ -32,7 +32,7 @@ export type RootStackParamList = {
   AppointmentList: undefined;
   AppointmentDetail: { id: string };
   CancelAppointment: { id: string };
-  Review: { vetId: string };
+  Review: { appointmentId: string; vetId: string };
 
   // Communication
   Chat: { vetId: string; name: string };
@@ -58,6 +58,6 @@ export type RootStackParamList = {
   AddCard: undefined;
   OrangeMoney: undefined;
   MtnMomo: undefined;
-  PaymentRecap: { vetId: string; amount: number; method?: string; slot?: string };
+  PaymentRecap: { vetId: string; amount: number; method?: string; slot?: string; date?: string; time?: string; reason?: string };
   PaymentResult: { success: boolean; vetName?: string; date?: string; time?: string };
 };

@@ -40,7 +40,7 @@ export default function HerdListScreen() {
             </View>
             <View style={styles.badge}>
               <Ionicons name="medkit-outline" size={13} color={colors.greenDark} />
-              <Text style={styles.badgeText}>{a.health.length}</Text>
+              <Text style={styles.badgeText}>{(a.healthEvents || []).length}</Text>
             </View>
           </Pressable>
         ))}

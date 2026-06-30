@@ -118,20 +118,12 @@ fichesRouter.post('/:id/unlock', requireAuth, async (req, res) => {
       },
     });
 
-    // Create placeholder unlock (will be finalized on payment success)
-    const unlock = await prisma.ficheUnlock.create({
-      data: {
-        userId: req.user!.id,
-        ficheId: req.params.id,
-        paymentId: payment.id,
-      },
-      include: { fiche: true, payment: true },
-    });
-
+    // L'unlock n'est créé qu'à la confirmation du paiement (webhook Camoo) — jamais ici,
+    // pour ne pas débloquer un contenu payant avant succès réel du paiement.
     res.json({
       success: true,
       data: {
-        unlock,
+        paymentId: payment.id,
         paymentRequired: {
           amount: payment.amount,
           method: payment.method,
@@ -145,7 +137,7 @@ fichesRouter.post('/:id/unlock', requireAuth, async (req, res) => {
 });
 
 // ─── POST /fiches - Create fiche (ADMIN only) ────────────────────────────────
-fichesRouter.post('/', requireRole('ADMIN'), async (req, res) => {
+fichesRouter.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
   const { name, species, contagious, description, fieldObs, prevention, vetInfo } = req.body;
 
   try {
@@ -172,7 +164,7 @@ fichesRouter.post('/', requireRole('ADMIN'), async (req, res) => {
 });
 
 // ─── PATCH /fiches/:id - Update fiche (ADMIN only) ───────────────────────────
-fichesRouter.patch('/:id', requireRole('ADMIN'), async (req, res) => {
+fichesRouter.patch('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   const { name, species, contagious, description, fieldObs, prevention, vetInfo } = req.body;
 
   try {
@@ -199,7 +191,7 @@ fichesRouter.patch('/:id', requireRole('ADMIN'), async (req, res) => {
 });
 
 // ─── DELETE /fiches/:id - Delete fiche (ADMIN only) ──────────────────────────
-fichesRouter.delete('/:id', requireRole('ADMIN'), async (req, res) => {
+fichesRouter.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     await prisma.fiche.delete({ where: { id: req.params.id } });
     res.json({ success: true });

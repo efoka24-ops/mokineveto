@@ -48,4 +48,13 @@ export const config = {
     maxAttempts: Number(process.env.OTP_MAX_ATTEMPTS ?? 3),
     length: 4,
   },
+
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-5-20250929',
+  },
+
+  uploads: {
+    dir: process.env.UPLOAD_DIR ?? 'uploads',
+  },
 } as const;

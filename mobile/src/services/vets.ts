@@ -1,8 +1,4 @@
-/**
- * Couche de données — Annuaire des vétérinaires.
- * Données mockées pour l'instant ; même signature que le futur appel API REST
- * (remplacer l'intérieur des fonctions sans toucher aux écrans).
- */
+import { api } from './api';
 
 export interface Vet {
   id: string;
@@ -13,133 +9,49 @@ export interface Vet {
   reviews: number;
   experienceYears: number;
   schedule: string;
-  hourlyRate: number; // XAF
+  hourlyRate: number;
   photo: string;
   professional: boolean;
   focus: string;
   ordreNumber: string;
 }
 
-const PHOTO = (seed: string) =>
-  `https://i.pravatar.cc/300?u=mokinevet-${seed}`;
+export async function listVets(filters?: {
+  gender?: string;
+  specialty?: string;
+  topRated?: boolean;
+}): Promise<Vet[]> {
+  const query = new URLSearchParams();
+  if (filters?.gender) query.append('gender', filters.gender);
+  if (filters?.specialty) query.append('specialty', filters.specialty);
+  if (filters?.topRated) query.append('topRated', 'true');
 
-const VETS: Vet[] = [
-  {
-    id: 'v1',
-    name: 'Dr. Moustapha Ali',
-    specialty: 'Médecine bovine',
-    gender: 'homme',
-    rating: 5,
-    reviews: 60,
-    experienceYears: 18,
-    schedule: 'Lun-Sam / 9:00AM - 5:00PM',
-    hourlyRate: 8000,
-    photo: PHOTO('moustapha'),
-    professional: true,
-    focus: "Suivi sanitaire des troupeaux bovins, reproduction et prévention des épizooties.",
-    ordreNumber: 'No 1234D',
-  },
-  {
-    id: 'v2',
-    name: 'Dr. Olivia Turner',
-    specialty: 'Aviculture',
-    gender: 'femme',
-    rating: 4.8,
-    reviews: 90,
-    experienceYears: 20,
-    schedule: 'Lun-Sam / 9 AM - 4 PM',
-    hourlyRate: 7000,
-    photo: PHOTO('olivia'),
-    professional: true,
-    focus: "Pathologies de la volaille, biosécurité des élevages et vaccination.",
-    ordreNumber: 'No 2051A',
-  },
-  {
-    id: 'v3',
-    name: 'Dr. Alexander Bennett',
-    specialty: 'Médecine des petits ruminants',
-    gender: 'homme',
-    rating: 5,
-    reviews: 40,
-    experienceYears: 15,
-    schedule: 'Lun-Sam / 9:00AM - 5:00PM',
-    hourlyRate: 6000,
-    photo: PHOTO('alexander'),
-    professional: true,
-    focus: "Caprins et ovins : parasitisme, nutrition et conduite de reproduction.",
-    ordreNumber: 'No 3098C',
-  },
-  {
-    id: 'v4',
-    name: 'Dr. Sophia Martinez',
-    specialty: 'Reproduction animale',
-    gender: 'femme',
-    rating: 4.9,
-    reviews: 150,
-    experienceYears: 12,
-    schedule: 'Lun-Ven / 8 AM - 4 PM',
-    hourlyRate: 9000,
-    photo: PHOTO('sophia'),
-    professional: true,
-    focus: "Insémination, suivi de gestation et amélioration génétique du cheptel.",
-    ordreNumber: 'No 4477B',
-  },
-  {
-    id: 'v5',
-    name: 'Dr. Michael Davidson',
-    specialty: 'Pathologie porcine',
-    gender: 'homme',
-    rating: 4.8,
-    reviews: 90,
-    experienceYears: 16,
-    schedule: 'Lun-Sam / 9 AM - 5 PM',
-    hourlyRate: 7500,
-    photo: PHOTO('michael'),
-    professional: true,
-    focus: "Maladies du porc, conduite d'élevage et plans de prophylaxie.",
-    ordreNumber: 'No 5521E',
-  },
-  {
-    id: 'v6',
-    name: 'Dr. NGANE',
-    specialty: 'Santé du troupeau',
-    gender: 'homme',
-    rating: 5,
-    reviews: 40,
-    experienceYears: 22,
-    schedule: 'Lun-Sam / 9:00AM - 5:00PM',
-    hourlyRate: 8500,
-    photo: PHOTO('ngane'),
-    professional: true,
-    focus: "Médecine de troupeau, audits sanitaires et téléconsultation d'urgence.",
-    ordreNumber: 'No 1234D',
-  },
-];
-
-const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-
-export async function listVets(): Promise<Vet[]> {
-  await wait();
-  return VETS;
+  const response = await api.get<{ success: boolean; data: Vet[] }>(
+    `/vets${query.size > 0 ? `?${query}` : ''}`
+  );
+  return response.data || [];
 }
 
 export async function getVet(id: string): Promise<Vet | undefined> {
-  await wait();
-  return VETS.find((v) => v.id === id);
+  const response = await api.get<{ success: boolean; data: Vet }>(`/vets/${id}`);
+  return response.data;
 }
 
-export function getVetSync(id: string): Vet | undefined {
-  return VETS.find((v) => v.id === id);
+export function getVetSync(_id: string): Vet | undefined {
+  return undefined;
 }
 
 export async function listByGender(gender: 'femme' | 'homme'): Promise<Vet[]> {
-  await wait();
-  return VETS.filter((v) => v.gender === gender);
+  return listVets({ gender });
 }
 
 export async function listTopRated(): Promise<Vet[]> {
-  await wait();
-  return [...VETS].sort((a, b) => b.rating - a.rating);
+  return listVets({ topRated: true });
+}
+
+export async function listSpecialties(): Promise<string[]> {
+  const response = await api.get<{ success: boolean; data: string[] }>('/vets/specialties');
+  return response.data || [];
 }
 
 export const SPECIALTIES = [
