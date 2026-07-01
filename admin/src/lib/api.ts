@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { useAdminStore } from '../store/useAdminStore';
 
-const API_BASE = 'http://localhost:8000';
+// En production (Vercel), définir VITE_API_URL sur l'URL du backend Railway.
+// En local, on retombe sur le serveur de dev.
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const api = axios.create({
   baseURL: API_BASE,
