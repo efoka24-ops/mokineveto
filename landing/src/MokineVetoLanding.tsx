@@ -7,12 +7,12 @@ import React, { useState } from "react";
  */
 
 const LOGO = `${import.meta.env.BASE_URL}logo.jpg`; // Official MokineVET branding
-// Lien de téléchargement de l'APK.
-// - Recommandé en prod : définir VITE_APK_URL sur l'URL publique de l'APK
-//   (artefact EAS Build ou release GitHub) — pas de binaire lourd via Railway.
-// - Sinon on sert l'APK depuis le backend (VITE_API_URL), repli localhost en dev.
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const APK_URL = import.meta.env.VITE_APK_URL || `${API_URL}/downloads/app.apk`;
+// APK : par défaut, l'asset "latest release" GitHub — URL permanente qui pointe
+// automatiquement vers le dernier APK publié par le workflow CI (aucun réglage à
+// refaire à chaque version). Surchargeable via VITE_APK_URL si besoin.
+const APK_URL =
+  import.meta.env.VITE_APK_URL ||
+  "https://github.com/efoka24-ops/mokineveto/releases/latest/download/mokineveto.apk";
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                                */

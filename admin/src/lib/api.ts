@@ -1,9 +1,15 @@
 import axios from 'axios';
 import { useAdminStore } from '../store/useAdminStore';
 
-// En production (Vercel), définir VITE_API_URL sur l'URL du backend Railway.
-// En local, on retombe sur le serveur de dev.
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Backend : détection à l'exécution selon le domaine — aucun réglage Vercel requis.
+// - ouvert sur localhost/127.0.0.1 → backend de dev local
+// - ouvert sur un vrai domaine (Vercel) → backend Railway
+// Surchargeable explicitement via VITE_API_URL.
+const isLocalhost =
+  typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  (isLocalhost ? 'http://localhost:8000' : 'https://mokineveto-production.up.railway.app');
 
 export const api = axios.create({
   baseURL: API_BASE,
