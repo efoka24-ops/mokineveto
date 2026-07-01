@@ -7,10 +7,12 @@ import React, { useState } from "react";
  */
 
 const LOGO = `${import.meta.env.BASE_URL}logo.jpg`; // Official MokineVET branding
-// URL du backend qui sert l'APK. En prod (Vercel), définir VITE_API_URL sur l'URL
-// Railway ; sinon on retombe sur le backend de dev local.
+// Lien de téléchargement de l'APK.
+// - Recommandé en prod : définir VITE_APK_URL sur l'URL publique de l'APK
+//   (artefact EAS Build ou release GitHub) — pas de binaire lourd via Railway.
+// - Sinon on sert l'APK depuis le backend (VITE_API_URL), repli localhost en dev.
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const APK_URL = `${API_URL}/downloads/app.apk`;
+const APK_URL = import.meta.env.VITE_APK_URL || `${API_URL}/downloads/app.apk`;
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                                */

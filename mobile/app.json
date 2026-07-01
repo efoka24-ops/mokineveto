@@ -1,15 +1,17 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "MokineVeto",
+    "slug": "mokineveto",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "cm.mokineveto.app"
     },
     "android": {
+      "package": "cm.mokineveto.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,7 +26,20 @@
     "plugins": [
       "expo-secure-store",
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MokineVeto utilise vos photos pour l'analyse visuelle des symptômes de vos animaux."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "MokineVeto utilise la biométrie pour déverrouiller l'application."
+        }
+      ]
     ]
   }
 }
