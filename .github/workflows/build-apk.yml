@@ -1,0 +1,98 @@
+name: Build Android APK (EAS)
+
+# Construit un APK Android via EAS Build puis le publie comme asset d'une release
+# GitHub. L'URL stable obtenue (…/releases/download/<tag>/mokineveto.apk) peut être
+# collée dans VITE_APK_URL côté landing (Vercel).
+#
+# Déclencheurs :
+#   - push d'un tag de version  (ex: git tag v1.0.1 && git push origin v1.0.1)
+#   - manuellement depuis l'onglet Actions (workflow_dispatch)
+#
+# Prérequis (une seule fois) :
+#   - Créer un token Expo : https://expo.dev/settings/access-tokens
+#   - L'ajouter dans le dépôt : Settings → Secrets and variables → Actions →
+#     New repository secret → nom EXPO_TOKEN, valeur = le token.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Profil EAS (preview = APK installable)'
+        required: false
+        default: 'preview'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build APK on EAS (wait for completion)
+        run: |
+          eas build \
+            --platform android \
+            --profile "${{ github.event.inputs.profile || 'preview' }}" \
+            --non-interactive \
+            --wait
+
+      - name: Resolve APK artifact URL
+        id: artifact
+        run: |
+          eas build:list \
+            --platform android \
+            --status finished \
+            --limit 1 \
+            --json \
+            --non-interactive > builds.json
+          URL=$(node -e "const b=require('./builds.json'); const a=b[0]&&b[0].artifacts; console.log((a&&(a.applicationArchiveUrl||a.buildUrl))||'')")
+          if [ -z "$URL" ]; then
+            echo "::error::Impossible de récupérer l'URL de l'artefact APK."
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK
+        run: curl -L -o mokineveto.apk "${{ steps.artifact.outputs.url }}"
+
+      - name: Publish APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/mokineveto.apk
+          fail_on_unmatched_files: true
+          body: |
+            APK Android MokineVeto (${{ github.ref_name }}).
+            Lien de téléchargement direct pour VITE_APK_URL :
+            `https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/mokineveto.apk`
+
+      - name: Upload APK as workflow artifact (fallback / manual runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mokineveto-apk
+          path: mobile/mokineveto.apk
