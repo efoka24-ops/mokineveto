@@ -7,7 +7,10 @@ import React, { useState } from "react";
  */
 
 const LOGO = `${import.meta.env.BASE_URL}logo.jpg`; // Official MokineVET branding
-const APK_URL = "http://localhost:8000/downloads/app.apk"; // Local dev (for production: update URL)
+// URL du backend qui sert l'APK. En prod (Vercel), définir VITE_API_URL sur l'URL
+// Railway ; sinon on retombe sur le backend de dev local.
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const APK_URL = `${API_URL}/downloads/app.apk`;
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                                */
