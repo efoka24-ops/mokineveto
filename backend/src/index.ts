@@ -26,6 +26,15 @@ import { verifySmtp } from './services/mailer.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Filets de sécurité : une erreur asynchrone non gérée ne doit pas tuer le process
+// (sinon crash-loop → Railway abandonne après restartPolicyMaxRetries → 502 permanent).
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[process] Uncaught exception:', err);
+});
+
 const app = express();
 const httpServer = createServer(app);
 
