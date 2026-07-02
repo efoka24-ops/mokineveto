@@ -7,6 +7,7 @@ import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Role } from '../../store/useAuthStore';
 import { signUp } from '../../services/auth';
+import { toUserMessage } from '../../services/api';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -57,7 +58,7 @@ export default function SignupScreen() {
       await signUp(payload);
       // RootNavigator switches to the Main stack reactively once the store's user is set.
     } catch (err) {
-      Alert.alert('Erreur', err instanceof Error ? err.message : 'Signup failed');
+      Alert.alert('Inscription impossible', toUserMessage(err));
     } finally {
       setLoading(false);
     }

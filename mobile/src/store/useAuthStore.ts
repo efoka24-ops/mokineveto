@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import { signup as signupApi, login as loginApi, updateProfile as updateProfileApi, SignupPayload, LoginPayload, UpdateProfilePayload } from '../services/api';
+import { signup as signupApi, login as loginApi, updateProfile as updateProfileApi, toUserMessage, SignupPayload, LoginPayload, UpdateProfilePayload } from '../services/api';
 import { registerForPushNotifications } from '../services/push';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
@@ -78,8 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: res.user, token: res.token, loading: false });
       onAuthenticated(res.token);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Signup failed';
-      set({ error: message, loading: false });
+      set({ error: toUserMessage(err), loading: false });
       throw err;
     }
   },
@@ -93,8 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: res.user, token: res.token, loading: false });
       onAuthenticated(res.token);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      set({ error: message, loading: false });
+      set({ error: toUserMessage(err), loading: false });
       throw err;
     }
   },
@@ -106,8 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.user));
       set({ user: res.user, loading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Update failed';
-      set({ error: message, loading: false });
+      set({ error: toUserMessage(err), loading: false });
       throw err;
     }
   },

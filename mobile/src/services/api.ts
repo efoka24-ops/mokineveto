@@ -7,7 +7,63 @@ import { API_BASE_URL } from './config';
 export class ApiError extends Error {
   constructor(public status: number, public body: unknown) {
     super(`API ${status}`);
+    this.name = 'ApiError';
   }
+
+  /** Message clair, en français, présentable à l'utilisateur final. */
+  get userMessage(): string {
+    return toUserMessage(this);
+  }
+}
+
+/** Extrait un éventuel message précis renvoyé par le backend. */
+function backendMessage(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null;
+  const err = (body as any).error;
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object' && typeof err.message === 'string') return err.message;
+  if (typeof (body as any).message === 'string') return (body as any).message;
+  return null;
+}
+
+/**
+ * Traduit n'importe quelle erreur (ApiError, panne réseau, timeout…) en un message
+ * court et compréhensible. On masque volontairement les détails techniques.
+ */
+export function toUserMessage(err: unknown): string {
+  // Panne réseau / serveur injoignable (fetch lève une TypeError)
+  if (!(err instanceof ApiError)) {
+    return "Impossible de joindre le serveur. Vérifiez votre connexion internet, puis réessayez.";
+  }
+
+  const { status, body } = err;
+
+  // Messages métier connus (doublons compte, identifiants, etc.)
+  const code = (body as any)?.error?.code;
+  if (status === 409 || code === 'USER_EXISTS') {
+    return "Un compte existe déjà avec cet e-mail ou ce numéro de téléphone.";
+  }
+  if (status === 401) {
+    return "Identifiants incorrects. Vérifiez votre e-mail/téléphone et votre mot de passe.";
+  }
+  if (status === 403) {
+    return "Accès refusé.";
+  }
+  if (status === 404) {
+    return "Ressource introuvable.";
+  }
+  if (status === 422 || status === 400) {
+    // Validation : on tente d'afficher le message backend s'il est lisible.
+    return backendMessage(body) || "Certaines informations sont invalides. Vérifiez le formulaire.";
+  }
+  if (status === 429) {
+    return "Trop de tentatives. Patientez un instant avant de réessayer.";
+  }
+  // 0 = erreur réseau encapsulée ; 5xx = panne serveur
+  if (status === 0 || status >= 500) {
+    return "Le service est momentanément indisponible. Réessayez dans quelques instants.";
+  }
+  return "Une erreur inattendue s'est produite. Réessayez.";
 }
 
 async function getAuthToken(): Promise<string | null> {
@@ -24,10 +80,15 @@ async function request<T>(path: string, init?: RequestInit, requiresAuth = false
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  } catch (_networkErr) {
+    // Panne réseau / DNS / serveur injoignable : on encapsule en ApiError(0)
+    // pour un message utilisateur homogène (jamais de "TypeError: Network request failed").
+    throw new ApiError(0, null);
+  }
+
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     // 401 : token expiré/invalide → logout automatique

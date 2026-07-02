@@ -7,6 +7,7 @@ import { Button, Input, Screen, SocialRow, TopBar } from '../../components';
 import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { signInWithPassword } from '../../services/auth';
+import { toUserMessage } from '../../services/api';
 import { useSecurityStore } from '../../store/useSecurityStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -24,7 +25,7 @@ export default function LoginScreen() {
       await signInWithPassword(email, password);
       // RootNavigator switches to the Main stack reactively once the store's user is set.
     } catch (err) {
-      Alert.alert('Erreur', err instanceof Error ? err.message : 'Login failed');
+      Alert.alert('Connexion impossible', toUserMessage(err));
     } finally {
       setLoading(false);
     }
