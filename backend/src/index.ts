@@ -82,8 +82,10 @@ app.use('/marketplace', marketplaceRouter);
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } }));
 
-httpServer.listen(config.port, () => {
-  console.log(`[${config.appName}] listening on port ${config.port} (${config.nodeEnv})`);
+// Bind explicitement sur 0.0.0.0 : sans hôte, Node écoute en IPv6 (::) que le proxy
+// Railway ne peut pas toujours joindre → 502 « Application failed to respond ».
+httpServer.listen(config.port, '0.0.0.0', () => {
+  console.log(`[${config.appName}] listening on 0.0.0.0:${config.port} (${config.nodeEnv})`);
   console.log(`[socket.io] real-time chat enabled`);
   startCronJobs();
 });
