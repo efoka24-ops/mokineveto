@@ -45,6 +45,9 @@ export type RootStackParamList = {
   Privacy: undefined;
   Help: undefined;
 
+  // Urgence (SFD §4.2)
+  Emergency: undefined;
+
   // Assistant IA / Fiches / Cheptel
   Chatbot: undefined;
   FichesList: undefined;

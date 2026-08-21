@@ -57,4 +57,11 @@ export const config = {
   uploads: {
     dir: process.env.UPLOAD_DIR ?? 'uploads',
   },
+
+  // Météo locale (SFD §4.2) : la clé reste côté serveur, jamais embarquée dans
+  // l'application — aucun secret ne doit être extractible du binaire livré.
+  openWeather: {
+    apiKey: process.env.OPENWEATHER_API_KEY ?? '',
+    baseUrl: process.env.OPENWEATHER_BASE_URL ?? 'https://api.openweathermap.org/data/2.5',
+  },
 } as const;

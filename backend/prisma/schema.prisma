@@ -159,6 +159,9 @@ model VetProfile {
   focus           String
   ordreNumber     String
 
+  /// Zone géographique d'intervention déclarée par le praticien (SFD §4.1.2).
+  interventionZone String?
+
   verification    VetVerificationStatus @default(PENDING)
   ratingAvg       Float    @default(0)
   ratingCount     Int      @default(0)
@@ -171,6 +174,30 @@ model VetProfile {
   appointments    Appointment[]
   reviews         Review[]
   favorites       Favorite[]
+  credentials     VetCredential[]
+}
+
+/// Pièces justificatives du praticien (SFD §4.1.2) : diplôme vétérinaire et
+/// carte d'ordre. Sans elles, la validation administrateur n'a rien à examiner.
+model VetCredential {
+  id              String   @id @default(cuid())
+  vetProfileId    String
+  vetProfile      VetProfile @relation(fields: [vetProfileId], references: [id], onDelete: Cascade)
+
+  type            VetCredentialType
+  fileUrl         String
+  mimeType        String
+  sizeBytes       Int
+  originalName    String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([vetProfileId])
+}
+
+enum VetCredentialType {
+  DIPLOMA      // Copie du diplôme vétérinaire
+  ORDER_CARD   // Carte de l'Ordre national
 }
 
 model Availability {

@@ -41,6 +41,7 @@ import PrivacyScreen from '../screens/profile/PrivacyScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 
 // Assistant IA / Fiches / Cheptel
+import EmergencyScreen from '../screens/home/EmergencyScreen';
 import ChatbotScreen from '../screens/assistant/ChatbotScreen';
 import FichesListScreen from '../screens/fiches/FichesListScreen';
 import FicheDetailScreen from '../screens/fiches/FicheDetailScreen';
@@ -114,6 +115,7 @@ export default function RootNavigator() {
           <Stack.Screen name="PaymentRecap" component={PaymentRecapScreen} />
           <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+          <Stack.Screen name="Emergency" component={EmergencyScreen} />
           <Stack.Screen name="Chatbot" component={ChatbotScreen} />
           <Stack.Screen name="FichesList" component={FichesListScreen} />
           <Stack.Screen name="FicheDetail" component={FicheDetailScreen} />

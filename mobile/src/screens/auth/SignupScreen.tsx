@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Input, Screen, Select, TopBar } from '../../components';
+import DocumentField from '../../components/DocumentField';
+import { uploadCredential, type PickedFile } from '../../services/credentials';
 import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Role } from '../../store/useAuthStore';
@@ -26,14 +28,28 @@ export default function SignupScreen() {
     ordreNumber: '',
     professional: '',
     focus: '',
+    interventionZone: '',
+    hourlyRate: '',
   });
   const [role, setRole] = useState<Role>('ELEVEUR');
   const [loading, setLoading] = useState(false);
+  const [diploma, setDiploma] = useState<PickedFile | null>(null);
+  const [orderCard, setOrderCard] = useState<PickedFile | null>(null);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const isVet = role === 'VETERINAIRE';
 
   const onSubmit = async () => {
+    // Les pièces justificatives conditionnent la validation du compte (SFD §4.1.2) :
+    // on bloque avant l'envoi plutôt que de créer un dossier inexaminable.
+    if (isVet && (!diploma || !orderCard)) {
+      Alert.alert(
+        'Pièces manquantes',
+        "Le diplôme vétérinaire et la carte de l'Ordre sont requis pour que votre compte puisse être validé."
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const payload: any = {
@@ -53,9 +69,26 @@ export default function SignupScreen() {
         payload.ordreNumber = form.ordreNumber;
         payload.professional = form.professional === 'yes';
         payload.focus = form.focus;
+        payload.interventionZone = form.interventionZone;
+        const rate = parseInt(form.hourlyRate, 10);
+        if (Number.isFinite(rate) && rate >= 0) payload.hourlyRate = rate;
       }
 
-      await signUp(payload);
+      const { token } = await signUp(payload);
+
+      if (isVet && diploma && orderCard) {
+        // Le compte est créé ; l'échec du dépôt ne doit pas l'annuler, mais le
+        // praticien doit savoir que son dossier reste incomplet.
+        try {
+          await uploadCredential('DIPLOMA', diploma, token);
+          await uploadCredential('ORDER_CARD', orderCard, token);
+        } catch (err) {
+          Alert.alert(
+            'Compte créé, pièces non transmises',
+            `${toUserMessage(err)}\n\nReprenez le dépôt depuis votre profil : votre compte ne pourra pas être validé sans ces pièces.`
+          );
+        }
+      }
       // RootNavigator switches to the Main stack reactively once the store's user is set.
     } catch (err) {
       Alert.alert('Inscription impossible', toUserMessage(err));
@@ -144,6 +177,44 @@ export default function SignupScreen() {
               value={form.focus}
               onChangeText={set('focus')}
             />
+            <Input
+              label="Zone d'Intervention"
+              placeholder="ex: Maroua et Diamaré"
+              value={form.interventionZone}
+              onChangeText={set('interventionZone')}
+            />
+            <Input
+              label="Tarif de Consultation (FCFA)"
+              placeholder="ex: 7000"
+              keyboardType="number-pad"
+              value={form.hourlyRate}
+              onChangeText={set('hourlyRate')}
+            />
+
+            {/*
+              Pièces justificatives (SFD §4.1.2). Sans elles, la validation
+              administrateur n'a rien à examiner : elles sont donc exigées avant
+              soumission, et non proposées après coup.
+            */}
+            <Text style={styles.docsTitle}>Pièces justificatives</Text>
+            <Text style={styles.docsIntro}>
+              Votre compte sera examiné par notre équipe sous 48 heures ouvrées. Ces deux pièces
+              sont indispensables à cet examen.
+            </Text>
+            <DocumentField
+              label="Diplôme vétérinaire"
+              hint="JPG, PNG ou PDF — 5 Mo maximum"
+              value={diploma}
+              onChange={setDiploma}
+              required
+            />
+            <DocumentField
+              label="Carte de l'Ordre"
+              hint="JPG, PNG ou PDF — 5 Mo maximum"
+              value={orderCard}
+              onChange={setOrderCard}
+              required
+            />
           </>
         )}
 
@@ -170,6 +241,8 @@ export default function SignupScreen() {
 
 const styles = StyleSheet.create({
   form: { marginTop: spacing.lg },
+  docsTitle: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.brown, marginTop: spacing.md },
+  docsIntro: { fontFamily: fonts.body, fontSize: 12, color: colors.grey, marginBottom: spacing.md, lineHeight: 17 },
   cta: { marginTop: spacing.lg },
   or: { textAlign: 'center', color: colors.grey, fontFamily: fonts.body, marginVertical: spacing.lg },
   signin: { textAlign: 'center', fontFamily: fonts.body, color: colors.ink },

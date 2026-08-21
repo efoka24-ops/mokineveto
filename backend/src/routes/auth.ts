@@ -25,6 +25,10 @@ const signupSchema = z.object({
   ordreNumber: z.string().optional(),
   professional: z.boolean().optional(),
   focus: z.string().optional(),
+  // Zone d'intervention et tarif de consultation par défaut (SFD §4.1.2).
+  // Le tarif reste modifiable à tout moment par le praticien.
+  interventionZone: z.string().optional(),
+  hourlyRate: z.number().int().min(0).optional(),
   // Eleveur-specific: region of their first farm (multi-élevage)
   region: z.enum([
     'ADAMAOUA', 'CENTRE', 'EST', 'EXTREME_NORD', 'LITTORAL',
@@ -51,6 +55,8 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     ordreNumber,
     professional,
     focus,
+    interventionZone,
+    hourlyRate,
     region,
   } = parsed.data;
 
@@ -92,10 +98,11 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
           gender: (gender as 'homme' | 'femme') || 'homme',
           experienceYears: experienceYears || 0,
           schedule: 'À définir',
-          hourlyRate: 7000,
+          hourlyRate: hourlyRate ?? 7000,
           professional: professional || false,
           focus: focus || 'À définir',
           ordreNumber: ordreNumber || 'En attente de vérification',
+          interventionZone: interventionZone || null,
           verification: 'PENDING',
         },
       });

@@ -13,7 +13,7 @@
     "android": {
       "package": "cm.mokineveto.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#D7F0DD",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -43,6 +43,12 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "MokineVeto utilise la biométrie pour déverrouiller l'application."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MokineVeto utilise votre position pour vous alerter des conditions climatiques et des foyers sanitaires de votre zone."
         }
       ]
     ],

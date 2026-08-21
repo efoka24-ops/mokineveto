@@ -1,195 +1,241 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fonts, radii, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { listVets, type Vet } from '../../services/vets';
+import { useHerdStore } from '../../store/useHerdStore';
+import { listAlerts, type HealthAlert } from '../../services/alerts';
+import { getLocalWeather, type Weather } from '../../services/weather';
+import AlertBanner from '../../components/AlertBanner';
+import WeatherWidget from '../../components/WeatherWidget';
+import HomeAction from '../../components/HomeAction';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const CATEGORIES = [
-  { key: 'eleveurs', label: 'Éleveurs', icon: 'cow' as const },
-  { key: 'producteurs', label: 'Producteurs', icon: 'silo' as const },
-  { key: 'veterinaires', label: 'Vétérinaires', icon: 'medical-bag' as const },
-  { key: 'marche', label: 'Marché', icon: 'storefront' as const },
-];
+/** Un animal est considéré en suivi actif dès qu'il porte au moins un événement de santé. */
+function hasActiveRecord(animal: { healthEvents?: unknown[] }): boolean {
+  return (animal.healthEvents?.length ?? 0) > 0;
+}
 
+/**
+ * Une échéance est « à venir » si elle tombe dans les 30 jours.
+ * Le rappel de notification part à J-7 (SFD §4.11) ; l'accueil ouvre une fenêtre
+ * plus large pour laisser à l'éleveur le temps de s'organiser.
+ */
+function isUpcoming(dateIso?: string): boolean {
+  if (!dateIso) return false;
+  const due = new Date(dateIso).getTime();
+  if (Number.isNaN(due)) return false;
+  const now = Date.now();
+  return due >= now && due - now <= 30 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Tableau de bord Éleveur (SFD §4.2).
+ *
+ * Composition imposée par la spécification : six boutons principaux à icônes
+ * larges, un widget météo avec alerte épizootique, un bandeau d'alertes
+ * sanitaires régionales et un résumé du cheptel.
+ *
+ * Cet écran suit la SFD et non la maquette Figma, qui décrivait un annuaire de
+ * prestataires — arbitrage rendu par le propriétaire du produit le 2026-08-21
+ * (constat C-01 de l'audit de design).
+ *
+ * Le bouton Urgence rouge permanent n'est pas monté ici mais au-dessus de la
+ * navigation à onglets, afin de rester atteignable depuis tout écran comme
+ * l'exige la spécification (voir components/EmergencyButton).
+ */
 export default function HomeScreen() {
   const nav = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
-  const [vets, setVets] = useState<Vet[]>([]);
-  const [loading, setLoading] = useState(true);
+  const animals = useHerdStore((s) => s.animals);
+  const hydrate = useHerdStore((s) => s.hydrate);
+
+  const [alerts, setAlerts] = useState<HealthAlert[]>([]);
+  const [weather, setWeather] = useState<Weather>({ available: false, risk: 'LOW', reasons: [] });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    // Chargements indépendants : l'échec de l'un ne doit pas priver l'éleveur
+    // des autres. Chaque service échoue déjà en silence de son côté.
+    await Promise.all([
+      hydrate().catch(() => {}),
+      listAlerts().then(setAlerts),
+      getLocalWeather().then(setWeather),
+    ]);
+  }, [hydrate]);
 
   useEffect(() => {
-    listVets().then((v) => {
-      setVets(v);
-      setLoading(false);
-    });
-  }, []);
+    load();
+  }, [load]);
 
-  const featured = vets.slice(0, 3);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  // Résumé du cheptel (SFD §4.2)
+  const bySpecies = animals.reduce<Record<string, number>>((acc, a) => {
+    acc[a.species] = (acc[a.species] ?? 0) + 1;
+    return acc;
+  }, {});
+  const withRecord = animals.filter(hasActiveRecord).length;
+  const upcomingVaccinations = animals.reduce(
+    (n, a) => n + (a.healthEvents?.filter((e) => isUpcoming(e.nextDueAt)).length ?? 0),
+    0
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Header */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.green} />
+        }
+      >
+        {/* En-tête */}
         <View style={styles.header}>
-          <Pressable style={styles.userRow} onPress={() => nav.navigate('Main', { screen: 'ProfileTab' })}>
+          <Pressable
+            style={styles.userRow}
+            onPress={() => nav.navigate('Main', { screen: 'ProfileTab' })}
+            accessibilityRole="button"
+            accessibilityLabel="Mon profil"
+          >
             <Image
               source={{ uri: user?.avatarUrl ?? 'https://i.pravatar.cc/100?u=mokinevet' }}
               style={styles.avatar}
             />
             <View>
               <Text style={styles.hello}>Bonjour</Text>
-              <Text style={styles.name}>{user?.name ?? 'Bienvenue'}</Text>
+              <Text style={styles.name} numberOfLines={1}>{user?.name ?? 'Bienvenue'}</Text>
             </View>
           </Pressable>
           <View style={styles.headerIcons}>
-            <RoundIcon icon="notifications-outline" onPress={() => nav.navigate('Notifications')} />
-            <RoundIcon icon="settings-outline" onPress={() => nav.navigate('Settings')} />
+            <RoundIcon icon="notifications-outline" label="Notifications" onPress={() => nav.navigate('Notifications')} />
+            <RoundIcon icon="settings-outline" label="Paramètres" onPress={() => nav.navigate('Settings')} />
           </View>
         </View>
 
-        {/* Search row */}
-        <View style={styles.searchRow}>
-          <Pressable style={styles.shortcut} onPress={() => nav.navigate('VetList', { title: 'Vétérinaires' })}>
-            <MaterialCommunityIcons name="stethoscope" size={22} color={colors.green} />
-            <Text style={styles.shortcutLabel}>Veto</Text>
-          </Pressable>
-          <Pressable style={styles.shortcut} onPress={() => nav.navigate('Favorites')}>
-            <Ionicons name="heart-outline" size={22} color={colors.green} />
-            <Text style={styles.shortcutLabel}>Favoris</Text>
-          </Pressable>
-          <View style={styles.search}>
-            <Pressable style={styles.filterBtn}>
-              <Ionicons name="options-outline" size={18} color={colors.white} />
-            </Pressable>
-            <TextInput placeholder="Recherche…" placeholderTextColor={colors.grey} style={styles.searchInput} />
-            <Ionicons name="search" size={18} color={colors.green} />
-          </View>
-        </View>
+        {/* Alertes sanitaires régionales */}
+        <AlertBanner alerts={alerts} />
 
-        {/* Featured carousel */}
-        {loading ? (
-          <ActivityIndicator color={colors.green} style={{ marginVertical: spacing.xxl }} />
-        ) : (
-          <FlatList
-            data={featured}
-            keyExtractor={(v) => v.id}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={{ marginBottom: spacing.sm }}
-            renderItem={({ item }) => <FeaturedCard vet={item} onPress={() => nav.navigate('VetDetail', { id: item.id })} />}
+        {/* Météo locale et risque épizootique */}
+        <WeatherWidget weather={weather} />
+
+        {/* Six boutons principaux */}
+        <View style={styles.actions}>
+          <HomeAction
+            icon="cow"
+            label="Mon Cheptel"
+            badge={animals.length}
+            onPress={() => nav.navigate('HerdList')}
           />
+          <HomeAction
+            icon="medical-bag"
+            label="Consulter un Vétérinaire"
+            onPress={() => nav.navigate('VetList', { title: 'Vétérinaires' })}
+          />
+          <HomeAction
+            icon="virus-outline"
+            label="Mes Animaux malades"
+            badge={withRecord}
+            onPress={() => nav.navigate('HerdList')}
+          />
+          <HomeAction
+            icon="calendar-clock"
+            label="Mes RDV"
+            onPress={() => nav.navigate('Main', { screen: 'Agenda' })}
+          />
+          <HomeAction
+            icon="message-text-outline"
+            label="Mes Messages"
+            onPress={() => nav.navigate('Main', { screen: 'Messages' })}
+          />
+          <HomeAction
+            icon="alert-octagon"
+            label="Urgence"
+            tone="danger"
+            onPress={() => nav.navigate('Emergency')}
+          />
+        </View>
+
+        {/* Résumé du cheptel */}
+        <Text style={styles.section}>Mon cheptel en un coup d'œil</Text>
+        <View style={styles.summary}>
+          <SummaryTile value={animals.length} label="animaux" icon="cow" />
+          <SummaryTile value={withRecord} label="dossiers actifs" icon="file-document-outline" />
+          <SummaryTile value={upcomingVaccinations} label="vaccins à venir" icon="needle" />
+        </View>
+
+        {Object.keys(bySpecies).length > 0 && (
+          <View style={styles.speciesCard}>
+            {Object.entries(bySpecies).map(([species, count], i) => (
+              <View key={species} style={[styles.speciesRow, i > 0 && styles.speciesBorder]}>
+                <Text style={styles.speciesName}>{species}</Text>
+                <Text style={styles.speciesCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
         )}
 
-        {/* Quick actions */}
-        <View style={styles.quickRow}>
-          <QuickAction icon="sparkles-outline" label="Assistant IA" onPress={() => nav.navigate('Chatbot')} />
-          <QuickAction icon="book-outline" label="Fiches" onPress={() => nav.navigate('FichesList')} />
-          <QuickAction icon="albums-outline" label="Cheptel" onPress={() => nav.navigate('HerdList')} />
-          <QuickAction icon="storefront-outline" label="Marketplace" onPress={() => nav.navigate('ProductList')} />
-        </View>
-
-        {/* Categories */}
-        <Text style={styles.sectionTitle}>Parcourir par catégorie</Text>
-        <View style={styles.categories}>
-          {CATEGORIES.map((c) => (
-            <Pressable
-              key={c.key}
-              style={styles.category}
-              onPress={() =>
-                c.key === 'eleveurs'
-                  ? nav.navigate('HerdList')
-                  : c.key === 'marche'
-                    ? nav.navigate('FichesList')
-                    : nav.navigate('VetList', { title: c.label })
-              }
-            >
-              <View style={styles.categoryIcon}>
-                <MaterialCommunityIcons name={c.icon} size={26} color={colors.brown} />
-              </View>
-              <Text style={styles.categoryLabel}>{c.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* List */}
-        {vets.slice(0, 4).map((v) => (
-          <Pressable key={v.id} style={styles.listCard} onPress={() => nav.navigate('VetDetail', { id: v.id })}>
-            <Image source={{ uri: v.photo }} style={styles.listAvatar} />
-            <View style={styles.listInfo}>
-              <Text style={styles.listName} numberOfLines={1}>{v.name}</Text>
-              <Text style={styles.listSpecialty} numberOfLines={1}>{v.specialty}</Text>
-              <View style={styles.listMeta}>
-                <Ionicons name="star" size={13} color={colors.star} />
-                <Text style={styles.listMetaText}>{v.rating}</Text>
-                <Ionicons name="chatbubble-ellipses-outline" size={13} color={colors.white} style={{ marginLeft: spacing.md }} />
-                <Text style={styles.listMetaText}>{v.reviews}</Text>
-              </View>
-            </View>
-            <Ionicons name="heart-outline" size={20} color={colors.white} />
+        {animals.length === 0 && (
+          <Pressable style={styles.emptyCard} onPress={() => nav.navigate('AddAnimal')}>
+            <MaterialCommunityIcons name="plus-circle-outline" size={28} color={colors.green} />
+            <Text style={styles.emptyTitle}>Aucun animal enregistré</Text>
+            <Text style={styles.emptyBody}>
+              Ajoutez un premier animal pour suivre sa santé et ses vaccinations.
+            </Text>
           </Pressable>
-        ))}
-        <View style={{ height: 90 }} />
+        )}
+
+        {/* Espace pour la barre d'onglets et le bouton d'urgence flottant. */}
+        <View style={{ height: 150 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function QuickAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+function SummaryTile({
+  value,
+  label,
+  icon,
+}: {
+  value: number;
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+}) {
   return (
-    <Pressable style={styles.quickAction} onPress={onPress}>
-      <View style={styles.quickIcon}>
-        <Ionicons name={icon} size={22} color={colors.white} />
-      </View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </Pressable>
+    <View style={styles.summaryTile}>
+      <MaterialCommunityIcons name={icon} size={22} color={colors.green} />
+      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={styles.summaryLabel} numberOfLines={2}>{label}</Text>
+    </View>
   );
 }
 
-function RoundIcon({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; onPress?: () => void }) {
+function RoundIcon({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+}) {
   return (
-    <Pressable style={styles.roundIcon} onPress={onPress}>
+    <Pressable
+      style={styles.roundIcon}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <Ionicons name={icon} size={20} color={colors.white} />
-    </Pressable>
-  );
-}
-
-function FeaturedCard({ vet, onPress }: { vet: Vet; onPress: () => void }) {
-  return (
-    <Pressable style={styles.featured} onPress={onPress}>
-      <Image source={{ uri: vet.photo }} style={styles.featuredAvatar} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.featuredName} numberOfLines={1}>{vet.name}</Text>
-        <Text style={styles.featuredSpec} numberOfLines={1}>Vétérinaire {vet.ordreNumber}</Text>
-        <View style={styles.featuredChips}>
-          <View style={styles.featuredChip}>
-            <Ionicons name="star" size={12} color={colors.star} />
-            <Text style={styles.featuredChipText}>{vet.rating}</Text>
-          </View>
-          <View style={styles.featuredChip}>
-            <Ionicons name="time-outline" size={12} color={colors.white} />
-            <Text style={styles.featuredChipText} numberOfLines={1}>{vet.schedule}</Text>
-          </View>
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={22} color={colors.white} />
     </Pressable>
   );
 }
@@ -197,44 +243,87 @@ function FeaturedCard({ vet, onPress }: { vet: Vet; onPress: () => void }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bgBlue },
   content: { padding: spacing.xl },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+  },
+  userRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: { width: 46, height: 46, borderRadius: 23 },
   hello: { fontFamily: fonts.body, color: colors.green, fontSize: 13 },
   name: { fontFamily: fonts.bodyBold, color: colors.brown, fontSize: 16 },
   headerIcons: { flexDirection: 'row', gap: spacing.md },
-  roundIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
+  // 48 dp : minimum de cible tactile exigé par la SFD §8.2.
+  roundIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl },
-  shortcut: { alignItems: 'center' },
-  shortcutLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.green, marginTop: 2 },
-  search: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingRight: spacing.lg, height: 46, ...shadow.soft },
-  filterBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm },
-  searchInput: { flex: 1, fontFamily: fonts.body, fontSize: 14, color: colors.ink },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.md,
+  },
 
-  featured: { width: 320, flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.brown, borderRadius: radii.lg, padding: spacing.lg, marginRight: spacing.md },
-  featuredAvatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: colors.white },
-  featuredName: { fontFamily: fonts.bodyBold, fontSize: 17, color: colors.white },
-  featuredSpec: { fontFamily: fonts.body, fontSize: 12, color: '#ffffffcc', marginBottom: spacing.sm },
-  featuredChips: { flexDirection: 'row', gap: spacing.sm },
-  featuredChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ffffff22', borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 3, maxWidth: 150 },
-  featuredChipText: { fontFamily: fonts.body, fontSize: 11, color: colors.white },
+  section: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    color: colors.brown,
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md,
+  },
 
-  quickRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
-  quickAction: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: radii.lg, paddingVertical: spacing.md, ...shadow.soft },
-  quickIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
-  quickLabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.brown },
-  sectionTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.green, marginTop: spacing.lg, marginBottom: spacing.md },
-  categories: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl },
-  category: { alignItems: 'center', flex: 1 },
-  categoryIcon: { width: 64, height: 64, borderRadius: radii.lg, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs, ...shadow.soft },
-  categoryLabel: { fontFamily: fonts.body, fontSize: 12, color: colors.green },
+  summary: { flexDirection: 'row', gap: spacing.md },
+  summaryTile: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    ...shadow.soft,
+  },
+  summaryValue: { fontFamily: fonts.displayBold, fontSize: 22, color: colors.brown, marginTop: 2 },
+  summaryLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.grey, textAlign: 'center' },
 
-  listCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.green, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md, ...shadow.soft },
-  listAvatar: { width: 56, height: 56, borderRadius: 28 },
-  listInfo: { flex: 1 },
-  listName: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.white },
-  listSpecialty: { fontFamily: fonts.body, fontSize: 12, color: '#ffffffcc' },
-  listMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  listMetaText: { fontFamily: fonts.body, fontSize: 11, color: colors.white, marginLeft: 3 },
+  speciesCard: {
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    ...shadow.soft,
+  },
+  speciesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  speciesBorder: { borderTopWidth: 1, borderTopColor: colors.border },
+  speciesName: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink },
+  speciesCount: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.green },
+
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    marginTop: spacing.md,
+    ...shadow.soft,
+  },
+  emptyTitle: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.brown, marginTop: spacing.sm },
+  emptyBody: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.grey,
+    textAlign: 'center',
+    marginTop: 2,
+  },
 });

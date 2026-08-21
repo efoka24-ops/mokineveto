@@ -20,6 +20,8 @@ import { aiRouter } from './routes/ai.js';
 import { alertsRouter } from './routes/alerts.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { marketplaceRouter } from './routes/marketplace.js';
+import { weatherRouter } from './routes/weather.js';
+import { credentialsRouter } from './routes/credentials.js';
 import { startCronJobs } from './lib/cron.js';
 import { verifySmtp } from './services/mailer.js';
 
@@ -78,6 +80,8 @@ app.use('/ai', aiRouter);
 app.use('/alerts', alertsRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/marketplace', marketplaceRouter);
+app.use('/weather', weatherRouter);
+app.use('/vet-credentials', credentialsRouter);
 
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } }));
