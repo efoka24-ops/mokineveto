@@ -99,6 +99,8 @@ inverse imposerait de reprendre entièrement cette couche.
 
 ## Phase 2 : US1 — Interface vétérinaire (P1) 🎯 MVP
 
+**Exigences couvertes** : FR-001 à FR-007
+
 **Objectif** : équiper le praticien, sans quoi aucune consultation n'aboutit.
 
 ### Serveur
@@ -143,6 +145,8 @@ la première fois.
 
 ## Phase 3 : US2 + US3 — Consultation à distance et géolocalisation (P1)
 
+**Exigences couvertes** : FR-008 à FR-018
+
 **Dépend de** : phase 1 (chiffrement) et phase 2 (praticien joignable).
 
 ### Temps réel — US3
@@ -186,6 +190,8 @@ la première fois.
 ---
 
 ## Phase 4 : US4 + US5 — Dossier médical complet et fonctionnement hors ligne (P2)
+
+**Exigences couvertes** : FR-019 à FR-031
 
 **Traités ensemble** : ils partagent le socle de persistance locale et de synchronisation. Les
 séparer imposerait une réécriture.
@@ -245,6 +251,8 @@ séparer imposerait une réécriture.
 
 ## Phase 5 : Sécurité et conformité (transverse)
 
+**Exigences couvertes** : FR-043 à FR-050 (FR-043 et FR-044 traitées en phase 1)
+
 **Dépend de** : phase 0 pour l'analyse automatisée. La partie chiffrement a été traitée en phase 1.
 
 - [ ] T083 [SEC] Limitation de débit — 100 requêtes/min par origine, 1 000/min par compte
@@ -272,6 +280,8 @@ séparer imposerait une réécriture.
 
 ## Phase 6 : US6 — Accessibilité pour non-lecteurs (P2)
 
+**Exigences couvertes** : FR-032 à FR-037
+
 - [ ] T093 [US6] Sélection des symptômes par pictogrammes, sans recours à la lecture (FR-033) —
       `mobile/src/screens/assistant/`
 - [ ] T094 [US6] Dictée des symptômes avec transcription (FR-032) — **subordonné à la levée de
@@ -290,6 +300,8 @@ séparer imposerait une réécriture.
 
 ## Phase 7 : US7 — Alertes et tableau de bord (P3)
 
+**Exigences couvertes** : FR-038 à FR-042
+
 - [ ] T102 [US7] Rendre l'accès à l'urgence disponible depuis tout écran de l'espace éleveur
       (FR-038) — `mobile/src/navigation/`
 - [ ] T103 [P] [US7] Bandeau d'alertes sanitaires de zone sur le tableau de bord (FR-039)
@@ -302,6 +314,8 @@ séparer imposerait une réécriture.
 ---
 
 ## Phase 8 : Conformité au design ⛔ BLOQUÉE
+
+**Exigences couvertes** : FR-051 à FR-054
 
 **⚠️ Cette phase ne peut pas démarrer.** Le fichier de maquettes n'est pas accessible au compte
 utilisé : l'accès en lecture ne suffit pas à l'outillage, qui exige un accès éditeur. Aucune
@@ -343,6 +357,18 @@ fournir un export des écrans de référence.
 - [ ] T121 Recette terrain de 4 semaines auprès d'éleveurs pilotes et de vétérinaires partenaires,
       **sur appareils réels et non sur émulateur** (SFD §9)
 
+### Critères de succès mesurés en recette terrain
+
+Ces trois critères portent sur des délais de bout en bout vécus par l'utilisateur. Ils ne se
+mesurent pas au banc mais en usage réel, et sont donc rattachés à T121.
+
+- [ ] T122 [PERF] Mesurer le délai entre l'ouverture de l'application et l'obtention d'une
+      orientation — seuil 5 minutes (SC-001)
+- [ ] T123 [PERF] Mesurer le délai de réponse à une demande de consultation ordinaire — seuil
+      2 heures dans 90 % des cas (SC-004)
+- [ ] T124 [PERF] Mesurer le délai de production d'un justificatif sanitaire présentable à un tiers
+      — seuil 2 minutes (SC-006)
+
 ---
 
 ## Dépendances entre phases
@@ -379,9 +405,9 @@ Les phases 4 à 7 avancent en parallèle du chemin critique, sans dépendance en
 | 7 | US7 — Alertes | T102–T107 | |
 | 8 | Conformité au design | T108–T113 | ⛔ Bloquée |
 | 9 | Réconciliation du périmètre | T114–T115 | Décision requise |
-| 10 | Validation finale | T116–T121 | |
+| 10 | Validation finale | T116–T124 | |
 
-**Total** : 121 tâches, dont 4 bloquées par un accès manquant et 2 en attente d'une décision du
+**Total** : 124 tâches, dont 4 bloquées par un accès manquant et 2 en attente d'une décision du
 propriétaire du produit.
 
 ---
