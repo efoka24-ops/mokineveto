@@ -100,10 +100,12 @@ return static function (Router $r): void {
             Http::ok([]);
         }
 
+        // Les rendez-vous sont horodatés par `startsAt` : on compare la partie
+        // date, et on ne retient que l'heure de début pour l'exclusion.
         $taken = array_column(
             Db::all(
-                "SELECT `time` FROM `Appointment`
-                 WHERE `vetProfileId` = ? AND `date` = ? AND `status` <> 'CANCELLED'",
+                "SELECT DATE_FORMAT(`startsAt`, '%H:%i') AS `time` FROM `Appointment`
+                 WHERE `vetProfileId` = ? AND DATE(`startsAt`) = ? AND `status` <> 'CANCELLED'",
                 [$a['id'], $date]
             ),
             'time'

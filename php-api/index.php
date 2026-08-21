@@ -61,7 +61,7 @@ if ($path === '/') {
 
 $router = new Router();
 
-foreach (['auth', 'vets', 'farms', 'animals', 'alerts', 'notifications', 'credentials', 'weather'] as $group) {
+foreach (['auth', 'vets', 'farms', 'animals', 'appointments', 'chat', 'alerts', 'notifications', 'credentials', 'weather'] as $group) {
     (require __DIR__ . "/routes/$group.php")($router);
 }
 
