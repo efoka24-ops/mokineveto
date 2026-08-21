@@ -45,7 +45,7 @@ pré-diagnostic et un système de consultation à distance, connecté et hors li
 
 | Couche | Contenu |
 |---|---|
-| Présentation | Application mobile Flutter (iOS/Android) · Interface éleveur · Interface vétérinaire · Back-office web React |
+| Présentation | Application mobile Expo / React Native (Android prioritaire, iOS phase 2) · Interface éleveur · Interface vétérinaire · Back-office web React |
 | Logique métier | Chatbot IA de pré-diagnostic · Moteur de mise en relation · Gestionnaire de rendez-vous · Moteur de facturation · Gestion du cheptel |
 | Services tiers | Twilio (appel/vidéo/SMS) · Orange Money API · MTN MoMo API · Wave API · Google Maps API · Firebase (notifications) |
 | Données | PostgreSQL (structuré) · SQLite local (offline) · Firebase Storage (médias) · Redis (cache sessions) |
@@ -298,7 +298,7 @@ la reconnexion.
 | | Charge phase 2 (Afrique de l'Est) | 50 000 utilisateurs actifs simultanés |
 | Compatibilité | Android minimum | Android 8.0 (API 26) — 95 % des appareils Afrique |
 | | iOS minimum | iOS 14 — phase 2 |
-| | Taille APK | < 30 Mo |
+| | Taille de l'app livrée | < 40 Mo par ABI (Android App Bundle, splits ABI activés) |
 | Stockage local | Espace requis sur appareil | < 100 Mo (DMA + base chatbot offline) |
 | Accessibilité | Taille minimale des boutons tactiles | 48 × 48 dp (WCAG 2.1 AA) |
 | | Contraste texte/fond | Ratio ≥ 4,5:1 (WCAG 2.1 AA) |
@@ -307,16 +307,16 @@ la reconnexion.
 
 | Couche | Technologie | Justification |
 |---|---|---|
-| Mobile (frontend) | Flutter 3.x (Dart) | Codebase unique iOS + Android, performant sur bas de gamme, offline natif, rich UI |
+| Mobile (frontend) | Expo SDK 56 / React Native 0.85 (TypeScript) | Codebase unique iOS + Android, écosystème JS partagé avec le backend et le back-office, builds OTA via EAS, stack déjà en production |
 | Backend (API) | Node.js + Express.js ou NestJS | Faible latence, scalabilité horizontale, JSON natif, maîtrisé par l'équipe |
 | IA / NLP | Python + FastAPI (microservice) · modèle fine-tuné Llama 3 ou Mistral 7B | Flexibilité du fine-tuning, inférence locale possible, multilingue natif |
-| Base de données | PostgreSQL (serveur) · SQLite / Hive (local) | PostgreSQL : robustesse, JSON natif, géospatial (PostGIS). SQLite/Hive : offline performant |
+| Base de données | PostgreSQL + Prisma (serveur) · expo-sqlite / AsyncStorage (local) | PostgreSQL : robustesse, JSON natif, géospatial (PostGIS). expo-sqlite : offline performant, AsyncStorage pour les préférences |
 | Authentification | JWT + Firebase Auth (fallback) | Stateless, scalable, OTP SMS natif |
 | Appels / Vidéo | Twilio Video + Voice SDK | Qualité réseau adaptative, chiffrement E2E, disponible en Afrique subsaharienne |
 | Notifications push | Firebase Cloud Messaging (FCM) | Gratuit, fiable, Android prioritaire |
 | SMS | Twilio SMS ou Africa's Talking | Africa's Talking : tarifs avantageux, routes locales directes |
 | Paiement | Orange Money API · MTN MoMo API · Cinetpay · M-Pesa Daraja | Couverture Afrique centrale + Est + Ouest ; Cinetpay simplifie le multi-opérateurs |
-| Cartographie | Google Maps SDK · OpenStreetMap (fallback offline) | Google Maps : qualité Afrique. OSM : offline et gratuit |
+| Cartographie | react-native-maps (Google Maps) · OpenStreetMap (fallback offline) | Google Maps : qualité Afrique. OSM : offline et gratuit |
 | Stockage médias | Firebase Storage · Cloudinary (images IA) | Intégration native ; transformations d'images pour l'IA |
 | CI/CD | GitHub Actions · Fastlane | Automatisation builds, tests, déploiements stores |
 | Monitoring | Firebase Crashlytics · Sentry · Grafana | Crashs temps réel, métriques serveur, alertes |
@@ -368,9 +368,9 @@ la reconnexion.
 
 | Niveau de test | Périmètre | Outil | Responsable |
 |---|---|---|---|
-| Tests unitaires | Fonctions métier isolées : chatbot, calcul tarif, sync offline, validation OTP | Flutter Test, Jest, pytest | Développeurs |
+| Tests unitaires | Fonctions métier isolées : chatbot, calcul tarif, sync offline, validation OTP | Jest + React Native Testing Library, pytest | Développeurs |
 | Tests d'intégration | Flux complets : inscription → consultation → paiement → DMA | Supertest, Postman Newman | Développeurs + QA |
-| Tests UI (E2E) | Parcours utilisateur sur émulateurs et appareils réels | Flutter Integration Test, Appium | QA |
+| Tests UI (E2E) | Parcours utilisateur sur émulateurs et appareils réels | Maestro (ou Detox), Playwright pour le back-office | QA |
 | Tests de charge | 1 000 utilisateurs simultanés, 50 consultations vidéo simultanées | k6, Artillery | DevOps |
 | Tests offline | Fonctionnalités offline réseau coupé, puis synchronisation | Manuel + scripts | QA |
 | Tests terrain (UAT) | Éleveurs pilotes (Maroua, Garoua) + vétérinaires partenaires — 4 semaines | Formulaires de retour structurés | Chef de projet + éleveurs |
@@ -384,8 +384,9 @@ la reconnexion.
 - **CI/CD** : Continuous Integration / Continuous Deployment — automatisation des tests et déploiements.
 - **DMA** : Dossier Médical Animal — fiche numérique centralisant les informations sanitaires d'un animal.
 - **E2E** : End-to-End — chiffrement où seuls l'émetteur et le destinataire peuvent lire les données.
+- **EAS** : Expo Application Services — chaîne de build et de distribution des applications Expo (builds Android/iOS, mises à jour OTA).
 - **Epizootie** : maladie infectieuse atteignant simultanément un grand nombre d'animaux d'une même espèce dans une région.
-- **Flutter** : framework mobile de Google, applications iOS et Android depuis une base de code unique.
+- **Expo / React Native** : framework mobile permettant de développer des applications iOS et Android en TypeScript depuis une base de code unique.
 - **JWT** : JSON Web Token — standard ouvert d'authentification par tokens.
 - **MVP** : Minimum Viable Product — version fonctionnelle minimale permettant de tester le concept.
 - **NLP** : Natural Language Processing — traitement automatique du langage naturel.
