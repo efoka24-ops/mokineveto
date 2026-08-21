@@ -59,6 +59,45 @@ Trois verrous, par ordre de gravité :
 
 ---
 
+## 2 bis. Ce que le déploiement effectif a révélé
+
+Le déploiement a été engagé le 2026-08-21. Trois obstacles supplémentaires sont apparus, invisibles à
+la simple inspection.
+
+### Limite de processus (LVE)
+
+`npm install` échoue en `EAGAIN` dès qu'un paquet exécute un script post-installation
+(`esbuild`, utilisé par `tsx`). Plus largement, la machine refuse par intermittence d'ouvrir de
+nouveaux shells (« Unable to exec ») dès que quelques processus sont actifs. `os.cpus().length`
+renvoie `0`, signe d'un conteneur très contraint.
+
+**Conséquence retenue** : le serveur n'exécute que du JavaScript **compilé en local**. `tsx` a
+disparu des dépendances de production, une compilation `tsconfig.build.json` produit `dist/`, et les
+dépendances sont installées avec `--ignore-scripts`.
+
+### Le moteur natif de Prisma ne démarre pas
+
+- Moteur *library* : `PANIC: timer has gone away` — le runtime Tokio ne parvient pas à créer ses
+  threads.
+- Moteur *binary* : le processus du moteur ne peut pas être lancé, l'appel reste suspendu.
+
+**Diagnostic déterminant** : la même base MySQL répond parfaitement avec un pilote purement
+JavaScript (`mysql2`) — `SELECT VERSION()` renvoie `8.0.45`. Le problème n'est donc ni la base, ni les
+identifiants, ni le réseau : il est exclusivement dans les composants natifs de Prisma.
+
+**Conséquence retenue** : montée de Prisma 5.20 → 6.19 et passage à l'**adaptateur de pilote**
+`@prisma/adapter-mariadb`, qui délègue les connexions à un client MySQL JavaScript et supprime la
+dépendance au moteur natif. Voir `src/lib/prisma.ts`.
+
+### Écoute réseau restreinte
+
+Sur une machine mutualisée, écouter sur `0.0.0.0` rendrait le port joignable par les autres comptes.
+`BIND_HOST` a été ajouté à la configuration : la production écoute sur `127.0.0.1`, l'exposition
+passant par le relais HTTP. Le comportement historique (`0.0.0.0`, requis par Railway) reste la
+valeur par défaut.
+
+---
+
 ## 3. Plan d'adaptation, si l'on maintient ce choix
 
 ### 3.1 Base de données : PostgreSQL → MySQL

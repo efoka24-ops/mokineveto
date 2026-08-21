@@ -88,8 +88,11 @@ app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NO
 
 // Bind explicitement sur 0.0.0.0 : sans hôte, Node écoute en IPv6 (::) que le proxy
 // Railway ne peut pas toujours joindre → 502 « Application failed to respond ».
-httpServer.listen(config.port, '0.0.0.0', () => {
-  console.log(`[${config.appName}] listening on 0.0.0.0:${config.port} (${config.nodeEnv})`);
+// Sur un hébergement mutualisé, une écoute sur 0.0.0.0 rendrait le port
+// joignable par les autres comptes de la machine : BIND_HOST permet de la
+// restreindre à la boucle locale, l'exposition passant alors par le relais HTTP.
+httpServer.listen(config.port, config.bindHost, () => {
+  console.log(`[${config.appName}] listening on ${config.bindHost}:${config.port} (${config.nodeEnv})`);
   console.log(`[socket.io] real-time chat enabled`);
   startCronJobs();
 });

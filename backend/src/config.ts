@@ -11,6 +11,9 @@ function required(name: string, fallback?: string): string {
 
 export const config = {
   port: Number(process.env.PORT ?? 8000),
+  // Railway a besoin d'une écoute sur 0.0.0.0 ; le mutualisé Camoo doit rester
+  // sur la boucle locale. Par défaut on conserve le comportement historique.
+  bindHost: process.env.BIND_HOST ?? '0.0.0.0',
   appName: 'MokineVeto API',
   nodeEnv: process.env.NODE_ENV ?? 'development',
 

@@ -1,0 +1,22 @@
+{
+  // Compilation de production.
+  //
+  // L'hébergement mutualisé Camoo applique une limite de processus qui fait
+  // échouer les scripts d'installation npm (esbuild, utilisé par tsx, ne peut
+  // pas se lancer). Le serveur n'exécute donc que du JavaScript déjà compilé,
+  // et `tsx` n'y est plus nécessaire.
+  //
+  // Le code source utilise déjà les extensions `.js` dans ses imports relatifs,
+  // ce qui le rend directement compatible avec la résolution ESM de Node.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": false,
+    "declaration": false
+  },
+  "include": ["src"]
+}
