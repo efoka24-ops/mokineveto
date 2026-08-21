@@ -1,0 +1,18 @@
+# MokineVeto API — routage vers le contrôleur frontal.
+#
+# Toute requête qui ne correspond pas à un fichier existant est confiée à
+# index.php, le chemin demandé étant passé dans __path.
+
+RewriteEngine On
+
+# L'en-tête Authorization n'est pas transmis à PHP par certaines configurations
+# Apache : sans cette ligne, toutes les requêtes authentifiées échoueraient.
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?__path=$1 [QSA,L]
+
+# Les répertoires de code ne doivent jamais être servis directement.
+RedirectMatch 404 ^/api/(lib|routes)/
