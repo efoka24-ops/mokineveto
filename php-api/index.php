@@ -10,8 +10,9 @@ declare(strict_types=1);
  * celui du backend remplacé — mêmes chemins, mêmes formats JSON — afin que
  * l'application mobile n'ait aucune modification à subir.
  *
- * Déploiement : ce répertoire est déposé dans `public_html/api/`, et le fichier
- * `.env` **au-dessus** de la racine web.
+ * Déploiement : ce répertoire EST la racine du sous-domaine
+ * `mokineveto-app.trugroup.cm` (répertoire `mokineveto-app` du compte). Les
+ * chemins publics sont donc `/health`, `/auth/login`… sans préfixe.
  */
 
 // En production, une trace PHP renvoyée au client exposerait des chemins et des
@@ -28,9 +29,17 @@ require __DIR__ . '/lib/Jwt.php';
 require __DIR__ . '/lib/Auth.php';
 require __DIR__ . '/lib/Router.php';
 
-// Le fichier d'environnement vit hors de la racine web : aucune URL ne peut
-// l'atteindre, même en cas de mauvaise configuration d'Apache.
-Config::load(dirname(__DIR__, 2) . '/mokineveto.env');
+// Le fichier d'environnement.
+//
+// L'idéal serait de le placer au-dessus de la racine web. Ce n'est pas possible
+// ici : le compte FTP est enraciné SUR `public_html`, il n'existe aucun
+// répertoire accessible au-dessus. Le fichier vit donc dans le répertoire de
+// l'application, et sa protection repose sur les règles de refus du .htaccess.
+//
+// Risque résiduel assumé : si le .htaccess venait à être ignoré, les
+// identifiants seraient exposés. À corriger dès que le compte disposera d'un
+// répertoire hors racine web (VPS, ou compte non enraciné sur public_html).
+Config::load(__DIR__ . '/.env');
 
 date_default_timezone_set('UTC');
 
@@ -43,13 +52,32 @@ header_remove('X-Powered-By');
 // ─── CORS ──────────────────────────────────────────────────────────────────
 // L'application mobile n'envoie pas d'origine ; le back-office web, si.
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Methods: GET, POST, PATCH, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-HTTP-Method-Override');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Max-Age: 86400');
 
 if (Http::method() === 'OPTIONS') {
     http_response_code(204);
     exit;
+}
+
+/**
+ * Surcharge de méthode.
+ *
+ * L'hébergement bloque PATCH, PUT et DELETE au niveau du serveur web : la
+ * requête est rejetée en 403 avant d'atteindre PHP. Le client envoie donc un
+ * POST portant l'en-tête `X-HTTP-Method-Override`, et l'API rétablit ici la
+ * méthode réelle. Le contrat REST est préservé côté application.
+ *
+ * La surcharge n'est acceptée que sur un POST : l'autoriser sur un GET
+ * permettrait de déclencher une écriture depuis un simple lien.
+ */
+$method = Http::method();
+if ($method === 'POST') {
+    $override = strtoupper((string) (Http::header('X-HTTP-Method-Override') ?? $_GET['_method'] ?? ''));
+    if (in_array($override, ['PATCH', 'PUT', 'DELETE'], true)) {
+        $method = $override;
+    }
 }
 
 // ─── Chemin demandé ────────────────────────────────────────────────────────
@@ -78,7 +106,7 @@ $router->get('/health', static function (): void {
 });
 
 try {
-    $router->dispatch(Http::method(), $path);
+    $router->dispatch($method, $path);
 } catch (Throwable $e) {
     error_log('[api] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     Http::fail('Une erreur interne est survenue.', 500, 'INTERNAL_ERROR');

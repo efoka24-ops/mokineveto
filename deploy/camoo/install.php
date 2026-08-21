@@ -23,7 +23,7 @@ require __DIR__ . '/lib/Config.php';
 require __DIR__ . '/lib/Id.php';
 require __DIR__ . '/lib/Db.php';
 
-Config::load(dirname(__DIR__, 2) . '/mokineveto.env');
+Config::load(__DIR__ . '/.env');
 
 $expected = Config::get('INSTALL_TOKEN', '');
 $provided = (string) ($_GET['token'] ?? '');
@@ -57,10 +57,21 @@ $sql = (string) file_get_contents($sqlPath);
 
 // Découpage naïf sur « ; » en fin de ligne : suffisant pour un DDL généré,
 // qui ne contient ni procédure stockée ni délimiteur personnalisé.
-$statements = array_values(array_filter(
-    array_map('trim', preg_split('/;\s*\n/', $sql) ?: []),
-    static fn (string $s): bool => $s !== '' && !str_starts_with($s, '--')
-));
+//
+// Chaque bloc du DDL généré commence par un commentaire (« -- CreateTable ») :
+// les lignes de commentaire sont retirées à l'intérieur de chaque instruction,
+// et non l'instruction entière — sinon tout serait écarté.
+$statements = [];
+foreach (preg_split('/;\s*\R/', $sql) ?: [] as $chunk) {
+    $lines = array_filter(
+        array_map('trim', preg_split('/\R/', $chunk) ?: []),
+        static fn (string $l): bool => $l !== '' && !str_starts_with($l, '--')
+    );
+    $statement = trim(implode("\n", $lines));
+    if ($statement !== '') {
+        $statements[] = $statement;
+    }
+}
 
 $applied = 0;
 $errors  = [];

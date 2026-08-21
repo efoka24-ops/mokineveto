@@ -101,12 +101,28 @@ async function request<T>(path: string, init?: RequestInit, requiresAuth = false
   return body as T;
 }
 
+/**
+ * L'hébergement de production bloque PATCH, PUT et DELETE au niveau du serveur
+ * web : la requête est rejetée en 403 avant d'atteindre l'application. Ces
+ * méthodes sont donc envoyées en POST, la méthode réelle étant portée par
+ * l'en-tête `X-HTTP-Method-Override` que l'API rétablit à la réception.
+ */
+function overridden(method: 'PATCH' | 'PUT' | 'DELETE', data: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'X-HTTP-Method-Override': method },
+    body: JSON.stringify(data ?? {}),
+  };
+}
+
 export const api = {
   get: <T>(path: string, auth = false) => request<T>(path, undefined, auth),
   post: <T>(path: string, data: unknown, auth = false) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(data) }, auth),
   patch: <T>(path: string, data: unknown, auth = false) =>
-    request<T>(path, { method: 'PATCH', body: JSON.stringify(data) }, auth),
+    request<T>(path, overridden('PATCH', data), auth),
+  delete: <T>(path: string, auth = false) =>
+    request<T>(path, overridden('DELETE', {}), auth),
 };
 
 // ─── Auth (signup/login/profile) ──────────────────────────────────

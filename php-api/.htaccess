@@ -1,7 +1,11 @@
-# MokineVeto API — routage vers le contrôleur frontal.
+# MokineVeto API — routage et protections.
 #
-# Toute requête qui ne correspond pas à un fichier existant est confiée à
-# index.php, le chemin demandé étant passé dans __path.
+# Ce répertoire EST la racine du sous-domaine : les chemins publics sont donc
+# /health, /auth/login, etc., sans préfixe /api.
+#
+# Volontairement limité à mod_rewrite et mod_alias : l'hébergement refuse
+# `Options` et les directives d'autorisation Apache 2.4 (`Require`), qui
+# provoquent une erreur 500.
 
 RewriteEngine On
 
@@ -10,9 +14,20 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# ─── Protections ───────────────────────────────────────────────────────────
+# Le compte FTP étant enraciné sur public_html, le fichier d'environnement ne
+# peut pas être placé au-dessus de la racine web. Ces règles sont donc la seule
+# barrière devant les identifiants. Elles passent AVANT la réécriture, sans quoi
+# un fichier existant serait servi tel quel.
+
+RedirectMatch 404 (?i)(^|/)\.env($|/)
+RedirectMatch 404 (?i)^/(lib|routes)/
+RedirectMatch 404 (?i)\.(sql|log|bak|ini)$
+
+# ─── Routage ───────────────────────────────────────────────────────────────
+# Toute requête qui ne correspond pas à un fichier existant est confiée à
+# index.php, le chemin demandé étant passé dans __path.
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?__path=$1 [QSA,L]
-
-# Les répertoires de code ne doivent jamais être servis directement.
-RedirectMatch 404 ^/api/(lib|routes)/
