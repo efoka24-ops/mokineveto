@@ -44,3 +44,6 @@ expo.err
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+
+# Maquettes exportées (volumineuses, référence externe)
+# design/

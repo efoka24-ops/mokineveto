@@ -313,60 +313,83 @@ séparer imposerait une réécriture.
 
 ---
 
-## Phase 8 : Conformité au design ⛔ BLOQUÉE
+## Phase 8 : Conformité au design ✅ DÉBLOQUÉE
 
 **Exigences couvertes** : FR-051 à FR-054
 
-**⚠️ Cette phase ne peut pas démarrer.** Le fichier de maquettes n'est pas accessible au compte
-utilisé : l'accès en lecture ne suffit pas à l'outillage, qui exige un accès éditeur. Aucune
-vérification de conformité visuelle n'est possible en l'état.
+**Débloquée le 2026-08-21** : 161 PNG exportés du fichier de maquettes ont été déposés dans `design/`
+par le propriétaire du produit. Inventaire et appariement réalisés — voir
+[design-audit.md](./design-audit.md).
 
-**Déblocage requis du propriétaire du produit** : ouvrir l'accès éditeur au fichier de maquettes, ou
-fournir un export des écrans de référence.
+*Réserve* : l'export fige la référence à sa date et ne permet pas de relever les valeurs exactes
+(espacements, rayons, graisses). Un accès éditeur au fichier reste préférable pour T112.
 
-- [ ] T108 [BLOQUÉE] Obtenir l'accès au fichier de maquettes de référence
-- [ ] T109 [BLOQUÉE] Inventorier les écrans maquettés et les apparier aux écrans implémentés
-- [ ] T110 [BLOQUÉE] Audit écran par écran — composition, hiérarchie visuelle, libellés (FR-051)
-- [ ] T111 Extraire les valeurs de style résiduelles codées en dur vers `mobile/src/theme/`
-      (FR-052, SC-027) — *réalisable sans l'accès aux maquettes*
-- [ ] T112 Traiter les états non maquettés — chargement, vide, erreur, hors ligne — sur l'ensemble
-      des écrans (FR-054) — *réalisable sans l'accès aux maquettes*
-- [ ] T113 [BLOQUÉE] Consigner les écarts délibérés avec leur justification (FR-053)
+- [x] T108 Obtenir l'accès aux maquettes de référence — *export PNG fourni*
+- [x] T109 Inventorier les écrans maquettés et les apparier aux écrans implémentés — *42 écrans
+      maquettés, 23 appariés, 1 maquetté non implémenté, 17 implémentés non maquettés*
+- [ ] T110 Audit écran par écran — composition, hiérarchie visuelle, libellés (FR-051)
+- [ ] T111 Redemander les neuf exports vides `All appointment` (7 097 octets, contenu non rendu)
+- [ ] T112 Extraire les valeurs de style résiduelles codées en dur vers `mobile/src/theme/`
+      (FR-052, SC-027) — la palette est déjà conforme (constat C-05)
+- [ ] T113 Traiter les états non maquettés — chargement, vide, erreur, hors ligne — sur l'ensemble
+      des écrans (FR-054)
+- [ ] T114 Consigner les écarts délibérés avec leur justification (FR-053), à commencer par le texte
+      indicatif erroné du champ Nom de la maquette `Sign Up` (constat C-04)
+- [ ] T115 Faire maquetter l'interface vétérinaire — absente du design comme du code (bloc 1)
+- [ ] T116 Implémenter l'écran `Favorite Services`, maquetté mais non développé
+
+### Défauts d'implémentation relevés à l'exécution sur émulateur
+
+- [ ] T117 Corriger le titre d'écran tronqué et chevauchant la zone de statut —
+      `mobile/src/components/TopBar.tsx` ne respecte pas la zone sûre (constat C-07)
+- [ ] T118 Supprimer ou repositionner l'icône de réglages flottante qui se superpose au contenu,
+      sans équivalent dans la maquette (constat C-07)
+- [ ] T119 Remplacer l'icône d'application : la planche de construction du logo — cercles de tracé et
+      axes en pointillés — est déclarée à la place du logo final (constat C-07)
 
 ---
 
 ## Phase 9 : Réconciliation du périmètre
 
-- [ ] T114 Porter au propriétaire du produit la décision sur le module de vente de produits —
-      présent dans le code, absent de la SFD : intégration ou retrait (FR-055)
-- [ ] T115 Appliquer la décision rendue et mettre à jour `SFD-MKNV-2026-v1.0.md` en conséquence
+- [x] T120 Porter au propriétaire du produit la décision sur le module de vente de produits
+      (FR-055) — **résolu par l'export** : l'écran `Producteur` comporte une catégorie « Marché » et
+      liste des fournisseurs. Le module est intentionnel et maquetté ; c'est la SFD qui est
+      incomplète (constat C-02)
+- [ ] T121 Compléter `SFD-MKNV-2026-v1.0.md` d'une section décrivant le module de vente
       (principe : un arbitrage non consigné est réputé non rendu)
+- [ ] T122 Trancher la contradiction entre la SFD §4.2 et la maquette sur l'accueil éleveur
+      (constat C-01) — **arbitrage requis, non tranchable par l'équipe**
+- [ ] T123 Trancher entre trois catégories (Fournisseurs) et quatre (Producteurs + Marché) sur
+      l'accueil (constat C-06)
+- [ ] T124 Compléter l'inscription vétérinaire des éléments exigés par la SFD §4.1.2 et absents du
+      code comme de la maquette : dépôt du diplôme et de la carte d'ordre, zone d'intervention,
+      tarif de consultation par défaut (constat C-03)
 
 ---
 
 ## Phase 10 : Validation finale
 
-- [ ] T116 [PERF] Campagne complète de mesure des seuils SFD §5 sur appareil de référence et réseau
+- [ ] T125 [PERF] Campagne complète de mesure des seuils SFD §5 sur appareil de référence et réseau
       bridé — SC-011, SC-012, SC-014, SC-015
-- [ ] T117 [PERF] Montée en charge à 1 000 utilisateurs actifs simultanés (SC-016) et vérification
+- [ ] T126 [PERF] Montée en charge à 1 000 utilisateurs actifs simultanés (SC-016) et vérification
       que l'architecture tient la cible de 50 000 sans réécriture (SC-018)
-- [ ] T118 [PERF] Vérifier la disponibilité à 99,5 % hors maintenance annoncée (SC-019)
-- [ ] T119 [P] [PERF] Vérifier qu'une interruption d'un service tiers — paiement, messagerie,
+- [ ] T127 [PERF] Vérifier la disponibilité à 99,5 % hors maintenance annoncée (SC-019)
+- [ ] T128 [P] [PERF] Vérifier qu'une interruption d'un service tiers — paiement, messagerie,
       cartographie — ne rend pas l'application inutilisable dans ses autres fonctions (SC-020)
-- [ ] T120 Suite de régression complète automatisée sur l'ensemble des parcours
-- [ ] T121 Recette terrain de 4 semaines auprès d'éleveurs pilotes et de vétérinaires partenaires,
+- [ ] T129 Suite de régression complète automatisée sur l'ensemble des parcours
+- [ ] T130 Recette terrain de 4 semaines auprès d'éleveurs pilotes et de vétérinaires partenaires,
       **sur appareils réels et non sur émulateur** (SFD §9)
 
 ### Critères de succès mesurés en recette terrain
 
 Ces trois critères portent sur des délais de bout en bout vécus par l'utilisateur. Ils ne se
-mesurent pas au banc mais en usage réel, et sont donc rattachés à T121.
+mesurent pas au banc mais en usage réel, et sont donc rattachés à T130.
 
-- [ ] T122 [PERF] Mesurer le délai entre l'ouverture de l'application et l'obtention d'une
+- [ ] T131 [PERF] Mesurer le délai entre l'ouverture de l'application et l'obtention d'une
       orientation — seuil 5 minutes (SC-001)
-- [ ] T123 [PERF] Mesurer le délai de réponse à une demande de consultation ordinaire — seuil
+- [ ] T132 [PERF] Mesurer le délai de réponse à une demande de consultation ordinaire — seuil
       2 heures dans 90 % des cas (SC-004)
-- [ ] T124 [PERF] Mesurer le délai de production d'un justificatif sanitaire présentable à un tiers
+- [ ] T133 [PERF] Mesurer le délai de production d'un justificatif sanitaire présentable à un tiers
       — seuil 2 minutes (SC-006)
 
 ---
@@ -403,26 +426,33 @@ Les phases 4 à 7 avancent en parallèle du chemin critique, sans dépendance en
 | 5 | Sécurité et conformité | T083–T092 | |
 | 6 | US6 — Accessibilité | T093–T101 | Une inconnue à lever |
 | 7 | US7 — Alertes | T102–T107 | |
-| 8 | Conformité au design | T108–T113 | ⛔ Bloquée |
-| 9 | Réconciliation du périmètre | T114–T115 | Décision requise |
-| 10 | Validation finale | T116–T124 | |
+| 8 | Conformité au design | T108–T119 | ✅ Débloquée — audit fait |
+| 9 | Réconciliation du périmètre | T120–T124 | 2 arbitrages requis |
+| 10 | Validation finale | T125–T133 | |
 
-**Total** : 124 tâches, dont 4 bloquées par un accès manquant et 2 en attente d'une décision du
-propriétaire du produit.
+**Total** : 133 tâches, dont 3 achevées (T108, T109, T120) et aucune bloquée.
 
 ---
 
 ## Points requérant une décision du propriétaire du produit
 
-Ces trois points sont hors de la main de l'équipe de développement et conditionnent une partie du
-plan :
+Ces points sont hors de la main de l'équipe de développement et conditionnent une partie du plan :
 
-1. **Accès aux maquettes de référence** — bloque la phase 8 dans son intégralité, ainsi que SC-026
-   et SC-027.
-2. **Module de vente de produits** — présent dans le code, absent de la SFD. Effort non chiffrable
-   tant que la décision n'est pas rendue.
+1. **Accueil éleveur : SFD §4.2 ou maquette ?** Les deux références décrivent des écrans
+   incompatibles — poste de pilotage sanitaire d'un côté, annuaire de prestataires de l'autre.
+   Bloque FR-038 à FR-040 (T122, constat C-01).
+2. **Catégories de l'accueil** : trois (Éleveurs, Fournisseurs, Vétérinaires) ou quatre (avec
+   Producteurs et Marché) ? Les deux maquettes divergent (T123, constat C-06).
 3. **Hébergement des données** — la SFD §7.3 impose une localisation en Afrique ; l'hébergement
    actuel doit être confirmé, un écart étant probable (T091).
+4. **Maquettage de l'interface vétérinaire** — absente du design comme du code. Non bloquant pour
+   démarrer le bloc 1, mais nécessaire avant sa livraison (T115).
 
-Deux autres points sont tranchés par défaut documenté et restent révisables sans blocage : le
-phasage des langues (swahili et arabe reportés) et le report du portage iOS.
+**Résolu le 2026-08-21** :
+
+- *Accès aux maquettes* — export PNG fourni, phase 8 débloquée.
+- *Module de vente de produits* — maquetté (catégorie « Marché »), donc au périmètre. C'est la SFD
+  qui est à compléter, non le code à retirer (T120, T121).
+
+Deux points restent tranchés par défaut documenté, révisables sans blocage : le phasage des langues
+(swahili et arabe reportés) et le report du portage iOS.
