@@ -340,12 +340,12 @@ par le propriétaire du produit. Inventaire et appariement réalisés — voir
 
 ### Défauts d'implémentation relevés à l'exécution sur émulateur
 
-- [ ] T117 Corriger le titre d'écran tronqué et chevauchant la zone de statut —
-      `mobile/src/components/TopBar.tsx` ne respecte pas la zone sûre (constat C-07)
-- [ ] T118 Supprimer ou repositionner l'icône de réglages flottante qui se superpose au contenu,
-      sans équivalent dans la maquette (constat C-07)
-- [ ] T119 Remplacer l'icône d'application : la planche de construction du logo — cercles de tracé et
-      axes en pointillés — est déclarée à la place du logo final (constat C-07)
+- [x] ~~T117 Corriger le titre d'écran tronqué~~ — **sans objet** : dû à la position de défilement au
+      moment de la capture,  respecte bien la zone sûre (constat C-08)
+- [x] ~~T118 Supprimer l'icône de réglages flottante~~ — **sans objet** : c'est le bouton « Tools »
+      d'Expo Go, absent de l'application livrée (constat C-08)
+- [x] T119 Remplacer l'icône d'application — **fait** : les six déclinaisons régénérées depuis le
+      symbole de , fond adaptatif passé au vert de marque
 
 ---
 

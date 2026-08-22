@@ -156,9 +156,21 @@ Relevés sur émulateur, indépendamment de toute maquette :
   statut. La `TopBar` ne respecte pas la zone sûre.
 - **Icône de réglages flottante** : un bouton engrenage se superpose au contenu en haut à droite, sans
   équivalent dans la maquette.
-- **Icône d'application incorrecte** : l'icône déclarée est la **planche de construction du logo** —
-  cercles de tracé, axes et diagonales en pointillés visibles — et non le logo final. Le logo de
-  démarrage, lui, est correct.
+- **Icône d'application incorrecte** : l'icône déclarée était l'**icône par défaut du gabarit Expo**
+  — un chevron bleu accompagné de ses guides de construction — et non le logo MokineVet.
+  **Corrigé le 2026-08-21** : les six déclinaisons ont été régénérées à partir du symbole de
+  `logo.jpg`, et le fond de l'icône adaptative est passé du bleu Expo au vert de marque.
+
+### C-08 — Deux constats de C-07 étaient erronés
+
+Vérification faite sur émulateur, deux des trois défauts relevés en C-07 n'en étaient pas :
+
+- L'**icône d'engrenage flottante** est le bouton « Tools » d'**Expo Go**, un élément de
+  l'environnement de développement. Elle n'existe pas dans l'application livrée.
+- Le **titre tronqué** observé sur l'écran d'inscription venait de la position de défilement au
+  moment de la capture, non d'un défaut de zone sûre. `TopBar` se comporte correctement.
+
+Seul le défaut d'icône était réel. Les tâches T117 et T118 sont donc sans objet.
 
 ---
 
