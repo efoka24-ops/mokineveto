@@ -50,6 +50,14 @@
         {
           "locationAlwaysAndWhenInUsePermission": "MokineVeto utilise votre position pour vous alerter des conditions climatiques et des foyers sanitaires de votre zone."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "extra": {

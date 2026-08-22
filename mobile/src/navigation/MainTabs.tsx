@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { TabParamList } from './types';
@@ -14,12 +14,20 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function MainTabs() {
   const role = useAuthStore((s) => s.user?.role);
+  const [tab, setTab] = useState<keyof TabParamList>('Home');
 
   return (
     <View style={styles.root}>
       <Tab.Navigator
         screenOptions={{ headerShown: false }}
         tabBar={(props) => <TabBar {...props} />}
+        screenListeners={{
+          state: (e) => {
+            const nav = e.data as { state?: { index: number; routeNames: string[] } };
+            const s = nav.state;
+            if (s) setTab(s.routeNames[s.index] as keyof TabParamList);
+          },
+        }}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Messages" component={MessagesScreen} />
@@ -32,10 +40,14 @@ export default function MainTabs() {
         à onglets pour rester atteignable depuis n'importe quel onglet sans
         navigation préalable.
 
+        Masqué sur l'accueil, où l'urgence est déjà présente sous la forme d'une
+        grande tuile rouge : l'exigence de permanence y est donc satisfaite, et
+        le bouton flottant ne ferait que recouvrir le résumé du cheptel.
+
         Réservé à l'éleveur : l'urgence est une demande émise vers un praticien,
         elle n'a pas de sens dans l'espace du praticien lui-même.
       */}
-      {role === 'ELEVEUR' && <EmergencyButton />}
+      {role === 'ELEVEUR' && tab !== 'Home' && <EmergencyButton />}
     </View>
   );
 }
