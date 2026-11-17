@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -15,8 +14,6 @@ import { Button, Screen } from '../../components';
 import { colors, fonts, spacing } from '../../theme';
 
 const ONBOARDING_KEY = 'mokinevet.onboardingSeen';
-
-const { width } = Dimensions.get('window');
 
 // TODO: remplacer ces icônes par les illustrations dessinées de la maquette
 // Figma dès qu'elles seront exportées (les fichiers skip1/2/3.png du kit
@@ -46,6 +43,9 @@ export default function OnboardingScreen() {
   const nav = useNavigation<any>();
   const ref = useRef<FlatList>(null);
   const [index, setIndex] = useState(0);
+  // Largeur réelle de la zone des slides, mesurée (et non celle de la fenêtre) :
+  // sur ordinateur la fenêtre est plus large que la colonne de l'app.
+  const [width, setWidth] = useState(0);
 
   const finish = () => {
     AsyncStorage.setItem(ONBOARDING_KEY, '1').catch(() => {});
@@ -65,24 +65,29 @@ export default function OnboardingScreen() {
           Skip ›
         </Text>
       </View>
-      <FlatList
-        ref={ref}
-        data={SLIDES}
-        keyExtractor={(s) => s.key}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onMomentum}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <View style={styles.illu}>
-              <MaterialCommunityIcons name={item.icon} size={88} color={colors.green} />
-            </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.text}>{item.text}</Text>
-          </View>
+      <View style={styles.pager} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && (
+          <FlatList
+            ref={ref}
+            data={SLIDES}
+            keyExtractor={(s) => s.key}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onMomentum}
+            getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+            renderItem={({ item }) => (
+              <View style={[styles.slide, { width }]}>
+                <View style={[styles.illu, { width: width * 0.7, height: width * 0.7 }]}>
+                  <MaterialCommunityIcons name={item.icon} size={88} color={colors.green} />
+                </View>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.text}>{item.text}</Text>
+              </View>
+            )}
+          />
         )}
-      />
+      </View>
       <View style={styles.dots}>
         {SLIDES.map((_, i) => (
           <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
@@ -98,10 +103,9 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, alignItems: 'flex-end' },
   skip: { fontFamily: fonts.bodySemiBold, color: colors.brown, fontSize: 16 },
-  slide: { width, paddingHorizontal: spacing.xxl, alignItems: 'center', justifyContent: 'center' },
+  pager: { flex: 1 },
+  slide: { paddingHorizontal: spacing.xxl, alignItems: 'center', justifyContent: 'center' },
   illu: {
-    width: width * 0.7,
-    height: width * 0.7,
     borderRadius: spacing.xl,
     backgroundColor: colors.bgLavender,
     marginBottom: spacing.xxxl,

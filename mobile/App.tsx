@@ -35,13 +35,22 @@ export default function App() {
     return <View style={{ flex: 1, backgroundColor: colors.white }} />;
   }
 
+  // Sur le web, l'app occupe une colonne de largeur téléphone (480 px max)
+  // centrée dans la fenêtre : sur mobile elle remplit l'écran, sur ordinateur
+  // elle ne s'étire plus sur toute la largeur.
+  const shellStyle = Platform.OS === 'web'
+    ? ({ flex: 1, width: '100%', maxWidth: 480, height: '100vh', alignSelf: 'center', overflow: 'hidden', backgroundColor: colors.white } as any)
+    : { flex: 1 };
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: Platform.OS === 'web' ? '#E9EEF6' : undefined }}>
       <SafeAreaProvider>
-        <NavigationContainer linking={webLinking}>
-          <StatusBar style="dark" />
-          <RootNavigator />
-        </NavigationContainer>
+        <View style={shellStyle}>
+          <NavigationContainer linking={webLinking}>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </NavigationContainer>
+        </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
