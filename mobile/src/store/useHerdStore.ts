@@ -30,6 +30,8 @@ export interface Farm {
   name: string;
   region: string;
   isDefault: boolean;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface State {
@@ -41,6 +43,7 @@ interface State {
   loadAnimals: (farmId?: string) => Promise<void>;
   loadFarms: () => Promise<void>;
   setCurrentFarm: (farmId: string | null) => void;
+  setFarmLocation: (farmId: string, lat: number, lng: number) => Promise<void>;
 
   add: (a: Omit<Animal, 'id' | 'userId'>) => Promise<void>;
   addEvent: (animalId: string, e: Omit<HealthEvent, 'id'>) => Promise<void>;
@@ -74,6 +77,11 @@ export const useHerdStore = create<State>((set, get) => ({
     } catch (_err) {
       console.warn('[useHerdStore] Failed to load farms');
     }
+  },
+
+  setFarmLocation: async (farmId, lat, lng) => {
+    await api.patch(`/farms/${farmId}/location`, { lat, lng }, true);
+    set({ farms: get().farms.map((f) => (f.id === farmId ? { ...f, lat, lng } : f)) });
   },
 
   loadAnimals: async (farmId?: string) => {

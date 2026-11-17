@@ -6,6 +6,7 @@
 export type Urgency = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface PreAnalysis {
+  id?: string;
   pathologies: string[];
   urgency: Urgency;
   advice: string;
@@ -64,6 +65,7 @@ export const URGENCY_LABEL: Record<Urgency, string> = {
   HIGH: 'Élevée',
 };
 
+import { Platform } from 'react-native';
 import { API_BASE_URL } from './config';
 
 /**
@@ -87,11 +89,17 @@ export async function preAnalyzeRemote(params: {
       const filename = params.photoUri.split('/').pop() || 'photo.jpg';
       const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
       const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-      form.append('photo', {
-        uri: params.photoUri,
-        name: filename,
-        type: mimeType,
-      } as unknown as Blob);
+      // Voir credentials.ts::uploadCredential — même correctif web/natif.
+      if (Platform.OS === 'web') {
+        const blob = await (await fetch(params.photoUri)).blob();
+        form.append('photo', blob, filename);
+      } else {
+        form.append('photo', {
+          uri: params.photoUri,
+          name: filename,
+          type: mimeType,
+        } as unknown as Blob);
+      }
     }
 
     const headers: Record<string, string> = {};
@@ -109,6 +117,7 @@ export async function preAnalyzeRemote(params: {
     const data = json.data;
 
     return {
+      id: data.id,
       pathologies: data.suspectedConditions?.length ? data.suspectedConditions : ['Affection non spécifique'],
       urgency: data.urgency || 'LOW',
       advice: [data.orientation, data.recommendation].filter(Boolean).join(' '),
@@ -121,3 +130,73 @@ export async function preAnalyzeRemote(params: {
 }
 
 export const SPECIES_OPTIONS = ['Bovins', 'Ovins', 'Caprins', 'Porcins', 'Volailles', 'Autre'];
+
+export interface ChatbotHistoryItem {
+  id: string;
+  species: string | null;
+  symptoms: string;
+  suspectedConditions: string[];
+  urgency: Urgency;
+  orientation: string;
+  confidence?: number | null;
+  reviewStatus?: string;
+  vetReviewStatus?: 'PENDING' | 'VALIDATED' | 'REJECTED' | null;
+  vetReviewNote?: string | null;
+  createdAt: string;
+}
+
+/** Historique des pré-analyses de l'éleveur, plus récentes d'abord. */
+export async function getChatbotHistory(token: string | null): Promise<ChatbotHistoryItem[]> {
+  const res = await fetch(`${API_BASE_URL}/ai/history`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.data ?? [];
+}
+
+/** Partage un résultat de pré-analyse avec un vétérinaire déjà consulté. */
+export async function shareWithVet(historyId: string, vetProfileId: string, token: string | null): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/ai/history/${historyId}/share`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ vetProfileId }),
+  });
+  return res.ok;
+}
+
+export interface SharedPreAnalysis extends ChatbotHistoryItem {
+  eleveurName: string;
+  eleveurId: string;
+}
+
+/** File des pré-analyses partagées avec le vétérinaire connecté. */
+export async function getSharedPreAnalyses(token: string | null): Promise<SharedPreAnalysis[]> {
+  const res = await fetch(`${API_BASE_URL}/vets/me/shared-preanalyses`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.data ?? [];
+}
+
+/** Décision du vétérinaire sur une pré-analyse partagée. */
+export async function reviewSharedPreAnalysis(
+  historyId: string,
+  decision: 'VALIDATED' | 'REJECTED',
+  note: string,
+  token: string | null
+): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/ai/history/${historyId}/vet-review`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ decision, note }),
+  });
+  return res.ok;
+}

@@ -29,6 +29,7 @@ return static function (Router $r): void {
         'unit'       => $p['unit'],
         'imageUrl'   => $p['imageUrl'],
         'active'     => (bool) $p['active'],
+        'supplier'   => isset($p['supplierName']) ? ['id' => $p['supplierId'], 'name' => $p['supplierName']] : null,
     ];
 
     $r->get('/marketplace/suppliers', static function () use ($shapeSupplier): void {
@@ -45,22 +46,24 @@ return static function (Router $r): void {
     });
 
     $r->get('/marketplace/products', static function () use ($shapeProduct): void {
-        $sql    = 'SELECT * FROM `Product` WHERE `active` = 1';
+        $sql    = 'SELECT p.*, s.`name` AS supplierName
+                   FROM `Product` p JOIN `Supplier` s ON s.`id` = p.`supplierId`
+                   WHERE p.`active` = 1';
         $params = [];
 
         $supplierId = Http::query('supplierId');
         if (is_string($supplierId) && $supplierId !== '') {
-            $sql     .= ' AND `supplierId` = ?';
+            $sql     .= ' AND p.`supplierId` = ?';
             $params[] = $supplierId;
         }
 
         $category = Http::query('category');
         if (is_string($category) && $category !== '') {
-            $sql     .= ' AND `category` = ?';
+            $sql     .= ' AND p.`category` = ?';
             $params[] = $category;
         }
 
-        Http::ok(array_map($shapeProduct, Db::all($sql . ' ORDER BY `name`', $params)));
+        Http::ok(array_map($shapeProduct, Db::all($sql . ' ORDER BY p.`name`', $params)));
     });
 
     $r->get('/marketplace/orders', static function (): void {
@@ -180,9 +183,9 @@ return static function (Router $r): void {
         ], 201);
     });
 
-    /** Changement d'état — réservé à l'administration. */
+    /** Changement d'état — l'administration ou le fournisseur propriétaire de la commande. */
     $r->patch('/marketplace/orders/{id}', static function (array $args): void {
-        Auth::requireRole('ADMIN');
+        $user = Auth::require();
 
         $status = strtoupper((string) Http::input('status', ''));
         if (!in_array($status, ['PENDING', 'CONFIRMED', 'DELIVERED', 'CANCELLED'], true)) {
@@ -192,6 +195,13 @@ return static function (Router $r): void {
         $order = Db::one('SELECT * FROM `Order` WHERE `id` = ?', [$args['id']]);
         if ($order === null) {
             Http::fail('Commande introuvable.', 404, 'NOT_FOUND');
+        }
+
+        if ($user['role'] !== 'ADMIN') {
+            $supplier = Db::one('SELECT `id` FROM `Supplier` WHERE `userId` = ?', [$user['id']]);
+            if ($supplier === null || $supplier['id'] !== $order['supplierId']) {
+                Http::fail('Accès refusé.', 403, 'FORBIDDEN');
+            }
         }
 
         Db::update('Order', $order['id'], ['status' => $status]);
@@ -206,5 +216,175 @@ return static function (Router $r): void {
         ], false);
 
         Http::ok(['id' => $order['id'], 'status' => $status]);
+    });
+
+    // ─── Espace fournisseur (compte connecté, rôle FOURNISSEUR) ────────────
+    /** Résout le Supplier lié à l'utilisateur connecté, ou refuse l'accès. */
+    $requireSupplier = static function () use ($shapeSupplier): array {
+        $user = Auth::requireRole('FOURNISSEUR');
+        $supplier = Db::one('SELECT * FROM `Supplier` WHERE `userId` = ?', [$user['id']]);
+        if ($supplier === null) {
+            Http::fail('Profil fournisseur introuvable.', 404, 'NOT_FOUND');
+        }
+        return $supplier;
+    };
+
+    $r->get('/marketplace/me/supplier', static function () use ($requireSupplier, $shapeSupplier): void {
+        Http::ok($shapeSupplier($requireSupplier()));
+    });
+
+    $r->patch('/marketplace/me/supplier', static function () use ($requireSupplier, $shapeSupplier): void {
+        $supplier = $requireSupplier();
+        $data = [];
+
+        $name = Http::input('name');
+        if (is_string($name) && trim($name) !== '') {
+            $data['name'] = trim($name);
+        }
+        $address = Http::input('address');
+        if (is_string($address)) {
+            $data['address'] = trim($address) ?: null;
+        }
+        $schedule = Http::input('schedule');
+        if (is_string($schedule)) {
+            $data['schedule'] = trim($schedule) ?: null;
+        }
+        $logoUrl = Http::input('logoUrl');
+        if (is_string($logoUrl) && filter_var($logoUrl, FILTER_VALIDATE_URL)) {
+            $data['logoUrl'] = $logoUrl;
+        }
+
+        if ($data !== []) {
+            Db::update('Supplier', $supplier['id'], $data);
+        }
+
+        $fresh = Db::one('SELECT * FROM `Supplier` WHERE `id` = ?', [$supplier['id']]);
+        Http::ok($shapeSupplier($fresh));
+    });
+
+    $r->get('/marketplace/me/products', static function () use ($requireSupplier, $shapeProduct): void {
+        $supplier = $requireSupplier();
+        $products = Db::all(
+            'SELECT * FROM `Product` WHERE `supplierId` = ? ORDER BY `name`',
+            [$supplier['id']]
+        );
+        Http::ok(array_map($shapeProduct, $products));
+    });
+
+    $r->post('/marketplace/me/products', static function () use ($requireSupplier, $shapeProduct): void {
+        $supplier = $requireSupplier();
+
+        $name     = trim((string) Http::input('name', ''));
+        $category = trim((string) Http::input('category', ''));
+        $price    = (int) Http::input('price', 0);
+        $unit     = trim((string) Http::input('unit', ''));
+
+        if ($name === '' || $category === '' || $unit === '' || $price <= 0) {
+            Http::fail('Nom, catégorie, unité et prix (positif) sont requis.', 400);
+        }
+
+        $productId = Db::insert('Product', [
+            'supplierId' => $supplier['id'],
+            'name'       => $name,
+            'category'   => $category,
+            'price'      => $price,
+            'unit'       => $unit,
+            'imageUrl'   => ((string) Http::input('imageUrl', '')) ?: null,
+            'active'     => 1,
+        ]);
+
+        $product = Db::one('SELECT * FROM `Product` WHERE `id` = ?', [$productId]);
+        Http::json(['success' => true, 'data' => $shapeProduct($product)], 201);
+    });
+
+    $r->patch('/marketplace/me/products/{id}', static function (array $args) use ($requireSupplier, $shapeProduct): void {
+        $supplier = $requireSupplier();
+        $product  = Db::one('SELECT * FROM `Product` WHERE `id` = ? AND `supplierId` = ?', [$args['id'], $supplier['id']]);
+        if ($product === null) {
+            Http::fail('Produit introuvable.', 404, 'NOT_FOUND');
+        }
+
+        $data = [];
+        foreach (['name', 'category', 'unit', 'imageUrl'] as $field) {
+            $value = Http::input($field);
+            if (is_string($value) && trim($value) !== '') {
+                $data[$field] = trim($value);
+            }
+        }
+        $price = Http::input('price');
+        if ($price !== null && (int) $price > 0) {
+            $data['price'] = (int) $price;
+        }
+        $active = Http::input('active');
+        if ($active !== null) {
+            $data['active'] = $active ? 1 : 0;
+        }
+
+        if ($data !== []) {
+            Db::update('Product', $product['id'], $data);
+        }
+
+        $fresh = Db::one(
+            'SELECT p.*, s.`name` AS supplierName FROM `Product` p JOIN `Supplier` s ON s.`id` = p.`supplierId` WHERE p.`id` = ?',
+            [$product['id']]
+        );
+        Http::ok($shapeProduct($fresh));
+    });
+
+    $r->delete('/marketplace/me/products/{id}', static function (array $args) use ($requireSupplier): void {
+        $supplier = $requireSupplier();
+        $product  = Db::one('SELECT `id` FROM `Product` WHERE `id` = ? AND `supplierId` = ?', [$args['id'], $supplier['id']]);
+        if ($product === null) {
+            Http::fail('Produit introuvable.', 404, 'NOT_FOUND');
+        }
+        // Désactivation plutôt que suppression : préserve l'historique des
+        // commandes déjà passées, qui référencent ce produit.
+        Db::update('Product', $product['id'], ['active' => 0]);
+        Http::ok(['id' => $product['id'], 'active' => false]);
+    });
+
+    $r->get('/marketplace/me/orders', static function () use ($requireSupplier): void {
+        $supplier = $requireSupplier();
+
+        $orders = Db::all(
+            'SELECT o.*, u.`name` AS buyerName, u.`phone` AS buyerPhone
+             FROM `Order` o JOIN `User` u ON u.`id` = o.`userId`
+             WHERE o.`supplierId` = ? ORDER BY o.`createdAt` DESC',
+            [$supplier['id']]
+        );
+        if ($orders === []) {
+            Http::ok([]);
+        }
+
+        $ids          = array_column($orders, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $items = Db::all(
+            "SELECT i.*, p.`name` AS productName, p.`unit`
+             FROM `OrderItem` i JOIN `Product` p ON p.`id` = i.`productId`
+             WHERE i.`orderId` IN ($placeholders)",
+            $ids
+        );
+
+        $byOrder = [];
+        foreach ($items as $it) {
+            $byOrder[$it['orderId']][] = [
+                'id'          => $it['id'],
+                'productId'   => $it['productId'],
+                'productName' => $it['productName'],
+                'unit'        => $it['unit'],
+                'qty'         => (int) $it['qty'],
+                'unitPrice'   => (int) $it['unitPrice'],
+            ];
+        }
+
+        Http::ok(array_map(static fn (array $o): array => [
+            'id'          => $o['id'],
+            'buyerName'   => $o['buyerName'],
+            'buyerPhone'  => $o['buyerPhone'],
+            'status'      => $o['status'],
+            'totalAmount' => (int) $o['totalAmount'],
+            'createdAt'   => $o['createdAt'],
+            'items'       => $byOrder[$o['id']] ?? [],
+        ], $orders));
     });
 };

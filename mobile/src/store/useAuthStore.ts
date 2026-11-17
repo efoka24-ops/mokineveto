@@ -17,7 +17,7 @@ const secureStorage = Platform.OS === 'web'
   ? { setItemAsync: AsyncStorage.setItem, getItemAsync: AsyncStorage.getItem, deleteItemAsync: AsyncStorage.removeItem }
   : SecureStore;
 
-export type Role = 'ELEVEUR' | 'VETERINAIRE' | 'ADMIN';
+export type Role = 'ELEVEUR' | 'VETERINAIRE' | 'FOURNISSEUR' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -25,6 +25,7 @@ export interface User {
   email?: string;
   phone: string;
   role: Role;
+  country?: string;
   avatarUrl?: string;
   birthDate?: string;
 }

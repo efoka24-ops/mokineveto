@@ -17,6 +17,8 @@ export interface Appointment {
   amount: number;
   reason: string;
   method?: string;
+  consultationType: ApiAppointment['consultationType'];
+  distanceKm?: number | null;
   status: AppointmentStatus;
   // Vet-side fields
   eleveurName?: string;
@@ -47,6 +49,8 @@ function mapApiAppointment(a: ApiAppointment): Appointment {
     amount: a.amount,
     reason: a.reason || 'Consultation',
     method: a.method,
+    consultationType: a.consultationType,
+    distanceKm: a.distanceKm,
     status: a.status,
     eleveurName: a.eleveur?.name,
     eleveurPhone: a.eleveur?.phone,

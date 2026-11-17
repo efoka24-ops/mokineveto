@@ -25,15 +25,29 @@ export default function VetCard({
   onToggleFavorite,
 }: Props) {
   const bg = variant === 'green' ? colors.green : colors.brown;
+  const availabilityColor =
+    vet.availability === 'DISPONIBLE' ? '#3DE07A' : vet.availability === 'OCCUPE' ? '#F4C542' : '#E86A6A';
+  const availabilityLabel =
+    vet.availability === 'DISPONIBLE' ? 'Disponible' : vet.availability === 'OCCUPE' ? 'Occupé' : 'Absent';
   return (
     <View style={[styles.card, { backgroundColor: bg }]}>
-      <Image source={{ uri: vet.photo }} style={styles.avatar} />
+      <View>
+        <Image source={{ uri: vet.photo }} style={styles.avatar} />
+        {vet.availability && (
+          <View style={[styles.availDot, { backgroundColor: availabilityColor }]} accessibilityLabel={availabilityLabel} />
+        )}
+      </View>
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>
-          {vet.name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {vet.name}
+          </Text>
+          {vet.certifiedBadge && (
+            <Ionicons name="checkmark-circle" size={15} color="#FFD873" accessibilityLabel="Vétérinaire certifié MokineVeto" />
+          )}
+        </View>
         <Text style={styles.specialty} numberOfLines={1}>
-          {vet.specialty}
+          {vet.specialty}{vet.distanceKm !== undefined ? ` · ${vet.distanceKm} km` : ''}
         </Text>
         <View style={styles.actions}>
           <Pressable style={styles.infoBtn} onPress={onInfo ?? onPress}>
@@ -79,7 +93,18 @@ const styles = StyleSheet.create({
     ...shadow.soft,
   },
   avatar: { width: 72, height: 72, borderRadius: 36, marginRight: spacing.md },
+  availDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: spacing.md + 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
   info: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   name: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.white },
   specialty: { fontFamily: fonts.body, fontSize: 12, color: '#ffffffcc', marginBottom: spacing.sm },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

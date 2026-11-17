@@ -21,6 +21,13 @@ export default function ProfileScreen() {
 
   const items: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }[] = [
     { icon: 'person-outline', label: t('profile.edit'), onPress: () => nav.navigate('EditProfile') },
+    ...(user?.role === 'VETERINAIRE'
+      ? [{
+          icon: 'document-text-outline' as const,
+          label: 'Mes pièces justificatives',
+          onPress: () => nav.navigate('VetCredentials'),
+        }]
+      : []),
     { icon: 'heart-outline', label: t('profile.favorites'), onPress: () => nav.navigate('Favorites') },
     { icon: 'wallet-outline', label: t('profile.paymentMethod'), onPress: () => nav.navigate('PaymentMethods') },
     { icon: 'lock-closed-outline', label: t('profile.privacy'), onPress: () => nav.navigate('Privacy') },

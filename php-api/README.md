@@ -25,20 +25,29 @@ les préfixes `$2a$` et `$2b$` produits par `bcryptjs`.
 
 ## Arborescence de déploiement
 
+Le compte FTP `trugro9159_mokin` est enraciné **directement sur la racine
+web** de `mokineveto.trugroup.cm` (pas de `public_html` intermédiaire) : le
+premier niveau du compte est ce que sert Apache.
+
 ```
-/home/<compte>/
-├─ mokineveto.env          identifiants — HORS de la racine web
-├─ uploads/                pièces déposées, hors racine web
-└─ public_html/api/        ce répertoire
+/home/trugro9159/mokineveto/    racine web (= racine FTP)
+├─ .env                         identifiants — protégés par .htaccess, pas par l'emplacement
+├─ .htaccess                    bloque .env et les fichiers .sql/.log/.bak/.ini
+├─ uploads/                     pièces déposées (protégées par api/.htaccess)
+├─ index.html, manifest.json…   la PWA (mobile/dist)
+└─ api/                         ce répertoire (php-api)
    ├─ .htaccess
    ├─ index.php
    ├─ lib/
    └─ routes/
 ```
 
-Le fichier d'environnement et les fichiers déposés vivent **au-dessus** de
-`public_html` : aucune URL ne peut les atteindre, même si la réécriture Apache
-venait à être désactivée.
+Contrairement au schéma habituel (`.env` hors racine web), aucun répertoire
+n'est hors d'atteinte d'une URL sur ce compte : la seule protection est le
+`.htaccess` racine, qui refuse explicitement `.env`. S'il venait à être
+ignoré par le serveur, les identifiants seraient exposés — risque résiduel
+assumé, à corriger si le compte migre vers un hébergement avec un répertoire
+réellement hors racine web.
 
 ## Variables d'environnement
 
@@ -51,6 +60,16 @@ DB_USER=
 DB_PASS=
 JWT_SECRET=            # 32 caractères minimum, sinon l'API refuse de servir
 OPENWEATHER_API_KEY=   # facultatif ; sans clé, la météo répond available:false
+
+# Paiements mobile money, relayés par Sungku (sungku.trugroup.cm) vers pawaPay.
+# MokineVeto y est enrôlé comme projet partenaire (PARTNER_MOKINEVETO_* dans
+# le .env de Sungku, voir PartnerAuth côté Sungku) — pas de flux
+# d'enrôlement HTTP, la clé est configurée directement par un humain.
+SUNGKU_BASE_URL=http://sungku.trugroup.cm
+SUNGKU_API_KEY=            # = PARTNER_MOKINEVETO_API_KEY côté Sungku
+SUNGKU_WEBHOOK_SECRET=     # = PARTNER_MOKINEVETO_WEBHOOK_SECRET côté Sungku, pour vérifier /payments/webhook/sungku
+# La devise de paiement suit le pays de l'utilisateur (voir lib/Countries.php),
+# pas une variable d'environnement.
 ```
 
 ## Couverture

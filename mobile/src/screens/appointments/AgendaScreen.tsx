@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,26 +22,46 @@ const STATUS_LABEL: Record<Appointment['status'], string> = {
   CANCELLED: 'Annulé',
 };
 
+const TABS: { key: Appointment['status']; label: string }[] = [
+  { key: 'UPCOMING', label: 'À venir' },
+  { key: 'COMPLETED', label: 'Terminés' },
+  { key: 'CANCELLED', label: 'Annulés' },
+];
+
 export default function AgendaScreen() {
   const nav = useNavigation<Nav>();
   const { items, hydrate } = useAppointmentsStore();
   const isVet = useAuthStore((s) => s.user?.role === 'VETERINAIRE');
+  const [tab, setTab] = useState<Appointment['status']>('UPCOMING');
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
+  const filtered = useMemo(() => items.filter((a) => a.status === tab), [items, tab]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <Text style={styles.title}>Mes rendez-vous</Text>
+      <View style={styles.tabs}>
+        {TABS.map((t) => (
+          <Pressable
+            key={t.key}
+            style={[styles.tab, tab === t.key && styles.tabActive]}
+            onPress={() => setTab(t.key)}
+          >
+            <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {items.length === 0 ? (
+        {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="calendar-outline" size={48} color={colors.blueSoft} />
-            <Text style={styles.emptyText}>Aucun rendez-vous pour l'instant.</Text>
+            <Text style={styles.emptyText}>Aucun rendez-vous dans cette catégorie.</Text>
           </View>
         ) : (
-          items.map((a) => (
+          filtered.map((a) => (
             <Pressable key={a.id} style={styles.card} onPress={() => nav.navigate('AppointmentDetail', { id: a.id })}>
               <View style={styles.cardHead}>
                 <Text style={styles.vetName}>{isVet ? a.eleveurName ?? 'Éleveur' : a.vetName}</Text>
@@ -68,6 +88,11 @@ export default function AgendaScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bgBlue },
   title: { fontFamily: fonts.displayBold, fontSize: 22, color: colors.blue, textAlign: 'center', paddingVertical: spacing.lg },
+  tabs: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xl, marginBottom: spacing.md },
+  tab: { flex: 1, paddingVertical: spacing.sm, borderRadius: radii.pill, alignItems: 'center', backgroundColor: colors.white },
+  tabActive: { backgroundColor: colors.blue },
+  tabText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.blue },
+  tabTextActive: { color: colors.white },
   content: { paddingHorizontal: spacing.xl },
   empty: { alignItems: 'center', marginTop: spacing.xxxl, gap: spacing.md },
   emptyText: { fontFamily: fonts.body, color: colors.grey },

@@ -1,0 +1,23 @@
+# Racine du domaine mokineveto.trugroup.cm — sert la PWA statique ; /api/ est
+# un sous-répertoire avec son propre .htaccess (routage de l'API PHP).
+#
+# Le compte FTP est enraciné directement sur la racine web (pas de
+# public_html) : le fichier d'environnement et les pièces déposées n'ont donc
+# aucun répertoire "au-dessus" où se mettre à l'abri d'une URL. Ces règles
+# sont la seule barrière devant eux.
+
+RedirectMatch 404 (?i)(^|/)\.env($|/)
+RedirectMatch 404 (?i)\.(sql|log|bak|ini)$
+
+# Filet de sécurité : React Navigation (mobile/App.tsx, webLinking) réécrit
+# les URL internes pour rester sous /app/, mais au tout premier rendu d'une
+# page (avant que cette réécriture ne s'exécute), l'URL affichée peut encore
+# être celle demandée sans le préfixe — ex. /Login au lieu de /app/Login.
+# Sans ce filet, un rechargement sur cette URL "orpheline" donnerait une 404
+# au lieu de rouvrir l'app. On ne redirige que les routes connues de l'app
+# mobile, jamais un chemin de la landing (/, /admin/, /api/, un fichier réel).
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/(app|api|admin)(/|$)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(Welcome|Login|Signup|ResetPassword|ChangePassword|Onboarding|Main|VetList|VetDetail|Favorites|GenderList|TopRated|Schedule|AppointmentDetail|CancelAppointment|Prescription|Carnet|SharedPreAnalyses|Review|Chat|Notifications|EditProfile|Settings|NotificationSettings|Privacy|Help|PaymentMethods|AddCard|OrangeMoney|MtnMomo|PaymentRecap|PaymentResult|Emergency|Chatbot|ChatbotHistory|FichesList|FicheDetail|AddFiche|HerdList|AddAnimal|AnimalDetail|FarmList|PinSetup|VetCredentials|VetAgenda|VetEpidemiology|PinUnlock|SupplierProducts|SupplierOrders|SupplierProfile)((/.*)?)$ /app/$1$2 [L]

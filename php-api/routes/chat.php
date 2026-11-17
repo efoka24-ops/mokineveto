@@ -108,25 +108,54 @@ return static function (Router $r): void {
         ], $rows));
     });
 
-    /** Ouvre une conversation, ou renvoie celle qui existe déjà. */
+    /**
+     * Ouvre une conversation, ou renvoie celle qui existe déjà — dans les
+     * deux sens : un éleveur la démarre depuis un profil vétérinaire (`vetId`),
+     * un vétérinaire depuis un dossier éleveur (`eleveurId`). Un praticien ne
+     * peut pas écrire à n'importe quel éleveur au hasard : seul un éleveur
+     * qu'il a déjà consulté (au moins un rendez-vous entre eux) est autorisé.
+     */
     $r->post('/chat/conversations', static function (): void {
-        $user  = Auth::requireRole('ELEVEUR');
-        $vetId = trim((string) Http::input('vetId', Http::input('vetProfileId', '')));
+        $user = Auth::require();
 
-        if ($vetId === '') {
-            Http::fail('Vétérinaire requis.', 400);
+        if ($user['role'] === 'ELEVEUR') {
+            $vetId = trim((string) Http::input('vetId', Http::input('vetProfileId', '')));
+            if ($vetId === '') {
+                Http::fail('Vétérinaire requis.', 400);
+            }
+            $eleveurId = $user['id'];
+        } elseif ($user['role'] === 'VETERINAIRE') {
+            $profile = Db::one('SELECT `id` FROM `VetProfile` WHERE `userId` = ?', [$user['id']]);
+            if ($profile === null) {
+                Http::fail('Profil vétérinaire introuvable.', 404, 'NOT_FOUND');
+            }
+            $vetId     = $profile['id'];
+            $eleveurId = trim((string) Http::input('eleveurId', ''));
+            if ($eleveurId === '') {
+                Http::fail('Éleveur requis.', 400);
+            }
+
+            $hasHistory = Db::one(
+                'SELECT `id` FROM `Appointment` WHERE `vetProfileId` = ? AND `eleveurId` = ? LIMIT 1',
+                [$vetId, $eleveurId]
+            );
+            if ($hasHistory === null) {
+                Http::fail("Aucune consultation commune avec cet éleveur.", 403);
+            }
+        } else {
+            Http::fail('Rôle non autorisé.', 403);
         }
 
         $existing = Db::one(
             'SELECT * FROM `Conversation` WHERE `eleveurId` = ? AND `vetProfileId` = ?',
-            [$user['id'], $vetId]
+            [$eleveurId, $vetId]
         );
         if ($existing !== null) {
             Http::ok(['id' => $existing['id'], 'created' => false]);
         }
 
         $id = Db::insert('Conversation', [
-            'eleveurId'    => $user['id'],
+            'eleveurId'    => $eleveurId,
             'vetProfileId' => $vetId,
             'createdAt'    => Db::now(),
         ], false);

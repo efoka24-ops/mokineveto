@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { Button, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, shadow, spacing } from '../../theme';
 import { useHerdStore } from '../../store/useHerdStore';
@@ -12,11 +13,26 @@ const REGIONS = [
 ];
 
 export default function FarmListScreen() {
-  const { farms, currentFarmId, loadFarms, setCurrentFarm } = useHerdStore();
+  const { farms, currentFarmId, loadFarms, setCurrentFarm, setFarmLocation } = useHerdStore();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [region, setRegion] = useState('CENTRE');
   const [saving, setSaving] = useState(false);
+  const [locatingId, setLocatingId] = useState<string | null>(null);
+
+  const captureLocation = async (farmId: string) => {
+    setLocatingId(farmId);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await setFarmLocation(farmId, pos.coords.latitude, pos.coords.longitude);
+    } catch (_err) {
+      console.warn('[FarmListScreen] Failed to capture location');
+    } finally {
+      setLocatingId(null);
+    }
+  };
 
   useEffect(() => {
     loadFarms();
@@ -77,9 +93,21 @@ export default function FarmListScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{f.name}</Text>
             <Text style={styles.region}>{f.region}{f.isDefault ? ' · par défaut' : ''}</Text>
+            {f.lat == null && (
+              <Text style={styles.noLocation}>Position non renseignée — requise pour les consultations terrain</Text>
+            )}
           </View>
+          <Pressable
+            hitSlop={10}
+            disabled={locatingId === f.id}
+            onPress={() => captureLocation(f.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Renseigner la position GPS"
+          >
+            <Ionicons name={f.lat != null ? 'location' : 'location-outline'} size={20} color={f.lat != null ? colors.green : colors.grey} />
+          </Pressable>
           {currentFarmId === f.id ? (
-            <Ionicons name="checkmark-circle" size={22} color={colors.green} />
+            <Ionicons name="checkmark-circle" size={22} color={colors.green} style={{ marginLeft: spacing.sm }} />
           ) : null}
         </Pressable>
       ))}
@@ -104,4 +132,5 @@ const styles = StyleSheet.create({
   iconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brown, alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
   region: { fontFamily: fonts.body, fontSize: 12, color: colors.grey, marginTop: 2 },
+  noLocation: { fontFamily: fonts.body, fontSize: 10, color: colors.star, marginTop: 2 },
 });

@@ -33,9 +33,12 @@ export type RootStackParamList = {
   AppointmentDetail: { id: string };
   CancelAppointment: { id: string };
   Review: { appointmentId: string; vetId: string };
+  Prescription: { appointmentId: string };
+  Carnet: undefined;
+  SharedPreAnalyses: undefined;
 
   // Communication
-  Chat: { vetId: string; name: string };
+  Chat: { conversationId?: string; vetId?: string; eleveurId?: string; name: string };
   Notifications: undefined;
 
   // Profil & paramètres
@@ -50,6 +53,7 @@ export type RootStackParamList = {
 
   // Assistant IA / Fiches / Cheptel
   Chatbot: undefined;
+  ChatbotHistory: undefined;
   FichesList: undefined;
   FicheDetail: { id: string };
   HerdList: undefined;
@@ -60,10 +64,17 @@ export type RootStackParamList = {
   ProductList: undefined;
   Cart: undefined;
   OrderHistory: undefined;
+  SupplierProducts: undefined;
+  SupplierOrders: undefined;
+  SupplierProfile: undefined;
 
   // Multi-élevage / Sécurité
   FarmList: undefined;
   PinSetup: undefined;
+  VetCredentials: undefined;
+  VetAgenda: undefined;
+  VetEpidemiology: undefined;
+  AddFiche: undefined;
   PinUnlock: undefined;
 
   // Paiement
@@ -71,6 +82,31 @@ export type RootStackParamList = {
   AddCard: undefined;
   OrangeMoney: undefined;
   MtnMomo: undefined;
-  PaymentRecap: { vetId: string; amount: number; method?: string; slot?: string; date?: string; time?: string; reason?: string };
-  PaymentResult: { success: boolean; vetName?: string; date?: string; time?: string };
+  PaymentRecap: {
+    vetId: string;
+    amount: number;
+    consultationType: 'CALL' | 'VIDEO' | 'FIELD';
+    farmId?: string;
+    distanceKm?: number;
+    method?: string;
+    slot?: string;
+    date?: string;
+    time?: string;
+    reason?: string;
+  };
+  PaymentResult: {
+    success: boolean;
+    vetName?: string;
+    vetSpecialty?: string;
+    date?: string;
+    time?: string;
+    appointmentId?: string;
+    paymentId?: string;
+    reference?: string;
+    amount?: number;
+    method?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CARD';
+    phone?: string;
+    consultationType?: 'CALL' | 'VIDEO' | 'FIELD';
+    reason?: string;
+  };
 };

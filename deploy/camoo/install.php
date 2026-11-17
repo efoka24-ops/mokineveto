@@ -23,7 +23,7 @@ require __DIR__ . '/lib/Config.php';
 require __DIR__ . '/lib/Id.php';
 require __DIR__ . '/lib/Db.php';
 
-Config::load(__DIR__ . '/.env');
+Config::load(__DIR__ . '/../.env');
 
 $expected = Config::get('INSTALL_TOKEN', '');
 $provided = (string) ($_GET['token'] ?? '');

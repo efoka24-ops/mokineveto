@@ -4,14 +4,30 @@ import { useNavigation } from '@react-navigation/native';
 import { Button, Input, Screen, Select, TopBar } from '../../components';
 import { colors, fonts, spacing } from '../../theme';
 import { useHerdStore } from '../../store/useHerdStore';
+import { breedOptions, OTHER_BREED } from '../../constants/breeds';
 
 export default function AddAnimalScreen() {
   const nav = useNavigation<any>();
   const add = useHerdStore((s) => s.add);
-  const [form, setForm] = useState({ name: '', species: 'Bovin', breed: '', age: '', robe: '' });
+  const initialBreed = breedOptions('Bovin')[0];
+  const [form, setForm] = useState({ name: '', species: 'Bovin', breed: initialBreed, age: '', robe: '' });
   const [sex, setSex] = useState<'M' | 'F'>('F');
+  // La race sélectionnée dans la liste ; « Autre » ouvre une saisie libre
+  // sans quoi une race locale absente de la liste bloquerait l'ajout.
+  const [breedChoice, setBreedChoice] = useState(initialBreed);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const onSpeciesChange = (species: string) => {
+    const firstBreed = breedOptions(species)[0];
+    setBreedChoice(firstBreed);
+    setForm((f) => ({ ...f, species, breed: firstBreed === OTHER_BREED ? '' : firstBreed }));
+  };
+
+  const onBreedChoiceChange = (choice: string) => {
+    setBreedChoice(choice);
+    setForm((f) => ({ ...f, breed: choice === OTHER_BREED ? '' : choice }));
+  };
 
   const save = () => {
     add({ ...form, sex });
@@ -25,7 +41,7 @@ export default function AddAnimalScreen() {
       <Select
         label="Espèce"
         value={form.species}
-        onChange={set('species')}
+        onChange={onSpeciesChange}
         options={[
           { label: 'Bovin', value: 'Bovin' },
           { label: 'Ovin', value: 'Ovin' },
@@ -34,7 +50,20 @@ export default function AddAnimalScreen() {
           { label: 'Volaille', value: 'Volaille' },
         ]}
       />
-      <Input label="Race" value={form.breed} onChangeText={set('breed')} />
+      <Select
+        label="Race"
+        value={breedChoice}
+        onChange={onBreedChoiceChange}
+        options={breedOptions(form.species).map((b) => ({ label: b, value: b }))}
+      />
+      {breedChoice === OTHER_BREED && (
+        <Input
+          label="Précisez la race"
+          placeholder="ex : Bakosi"
+          value={form.breed}
+          onChangeText={set('breed')}
+        />
+      )}
 
       <Text style={styles.label}>Sexe</Text>
       <View style={styles.sexRow}>

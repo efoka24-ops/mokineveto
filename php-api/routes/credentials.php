@@ -88,11 +88,12 @@ return static function (Router $r): void {
             Http::fail('Formats acceptés : JPG, PNG ou PDF.', 400);
         }
 
-        // dirname(__DIR__, 3) remonte AU-DESSUS de public_html : un diplôme ou
-        // une carte d'ordre ne doit jamais être servi directement par Apache.
+        // dirname(__DIR__, 2) remonte à la racine du compte, au-dessus du
+        // répertoire api/ : un diplôme ou une carte d'ordre ne doit jamais
+        // être servi directement par Apache.
         // Ces pièces seront consultables par l'administration via une route
         // authentifiée, jamais par URL publique.
-        $dir = dirname(__DIR__, 3) . '/uploads/credentials';
+        $dir = dirname(__DIR__, 2) . '/uploads/credentials';
         if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
             error_log('[credentials] création du répertoire impossible : ' . $dir);
             Http::fail('Dépôt impossible pour le moment.', 500);
@@ -111,7 +112,7 @@ return static function (Router $r): void {
         );
         if ($previous !== null) {
             Db::run('DELETE FROM `VetCredential` WHERE `id` = ?', [$previous['id']]);
-            $old = dirname(__DIR__, 3) . '/uploads/' . ltrim(str_replace('/uploads/', '', (string) $previous['fileUrl']), '/');
+            $old = dirname(__DIR__, 2) . '/uploads/' . ltrim(str_replace('/uploads/', '', (string) $previous['fileUrl']), '/');
             if (is_file($old)) {
                 @unlink($old);
             }
@@ -146,7 +147,7 @@ return static function (Router $r): void {
         }
 
         Db::run('DELETE FROM `VetCredential` WHERE `id` = ?', [$credential['id']]);
-        $path = dirname(__DIR__, 3) . '/uploads/' . ltrim(str_replace('/uploads/', '', (string) $credential['fileUrl']), '/');
+        $path = dirname(__DIR__, 2) . '/uploads/' . ltrim(str_replace('/uploads/', '', (string) $credential['fileUrl']), '/');
         if (is_file($path)) {
             @unlink($path);
         }

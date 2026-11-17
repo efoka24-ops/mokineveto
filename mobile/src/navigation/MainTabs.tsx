@@ -6,6 +6,8 @@ import TabBar from './TabBar';
 import EmergencyButton from '../components/EmergencyButton';
 import { useAuthStore } from '../store/useAuthStore';
 import HomeScreen from '../screens/home/HomeScreen';
+import VetHomeScreen from '../screens/home/VetHomeScreen';
+import SupplierHomeScreen from '../screens/home/SupplierHomeScreen';
 import MessagesScreen from '../screens/chat/MessagesScreen';
 import AgendaScreen from '../screens/appointments/AgendaScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -29,7 +31,10 @@ export default function MainTabs() {
           },
         }}
       >
-        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen
+          name="Home"
+          component={role === 'VETERINAIRE' ? VetHomeScreen : role === 'FOURNISSEUR' ? SupplierHomeScreen : HomeScreen}
+        />
         <Tab.Screen name="Messages" component={MessagesScreen} />
         <Tab.Screen name="ProfileTab" component={ProfileScreen} />
         <Tab.Screen name="Agenda" component={AgendaScreen} />

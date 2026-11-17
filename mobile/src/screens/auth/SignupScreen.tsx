@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,7 +9,7 @@ import { colors, fonts, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Role } from '../../store/useAuthStore';
 import { signUp } from '../../services/auth';
-import { toUserMessage } from '../../services/api';
+import { getCountries, toUserMessage, type Country } from '../../services/api';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,14 +30,38 @@ export default function SignupScreen() {
     focus: '',
     interventionZone: '',
     hourlyRate: '',
+    // Supplier fields
+    businessName: '',
+    address: '',
+    schedule: '',
   });
   const [role, setRole] = useState<Role>('ELEVEUR');
   const [loading, setLoading] = useState(false);
   const [diploma, setDiploma] = useState<PickedFile | null>(null);
   const [orderCard, setOrderCard] = useState<PickedFile | null>(null);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [country, setCountry] = useState('');
+  const [region, setRegion] = useState('');
+
+  // Liste des pays chargée depuis le serveur : les régions proposées et la
+  // langue par défaut s'adaptent au pays choisi, sans rien coder en dur ici.
+  useEffect(() => {
+    getCountries()
+      .then(({ data }) => {
+        setCountries(data);
+        if (data.length > 0) {
+          setCountry(data[0].code);
+          setRegion(data[0].regions[0] ?? '');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const selectedCountry = countries.find((c) => c.code === country);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const isVet = role === 'VETERINAIRE';
+  const isSupplier = role === 'FOURNISSEUR';
 
   const onSubmit = async () => {
     // Les pièces justificatives conditionnent la validation du compte (SFD §4.1.2) :
@@ -59,7 +83,15 @@ export default function SignupScreen() {
         phone: form.phone,
         birthDate: form.birthDate,
         role,
+        country,
       };
+      if (!isVet) payload.region = region;
+
+      if (isSupplier) {
+        payload.businessName = form.businessName;
+        payload.address = form.address;
+        payload.schedule = form.schedule;
+      }
 
       // Add vet-specific fields if registering as vet
       if (isVet) {
@@ -128,8 +160,34 @@ export default function SignupScreen() {
           options={[
             { label: 'Éleveur', value: 'ELEVEUR' },
             { label: 'Vétérinaire', value: 'VETERINAIRE' },
+            { label: 'Fournisseur', value: 'FOURNISSEUR' },
           ]}
         />
+
+        {/* Pays : conditionne les régions proposées ci-dessous, la langue par
+            défaut et la devise des paiements. */}
+        {countries.length > 0 && (
+          <Select
+            label="Pays"
+            value={country}
+            onChange={(v) => {
+              setCountry(v);
+              const next = countries.find((c) => c.code === v);
+              setRegion(next?.regions[0] ?? '');
+            }}
+            options={countries.map((c) => ({ label: c.label, value: c.code }))}
+          />
+        )}
+
+        {/* Région de l'exploitation, non pertinente pour un compte vétérinaire. */}
+        {!isVet && selectedCountry && (
+          <Select
+            label="Région"
+            value={region}
+            onChange={setRegion}
+            options={selectedCountry.regions.map((r) => ({ label: r.replace(/_/g, ' '), value: r }))}
+          />
+        )}
 
         {/* Vet-Specific Fields */}
         {isVet && (
@@ -214,6 +272,30 @@ export default function SignupScreen() {
               value={orderCard}
               onChange={setOrderCard}
               required
+            />
+          </>
+        )}
+
+        {/* Supplier-Specific Fields */}
+        {isSupplier && (
+          <>
+            <Input
+              label="Nom de l'entreprise"
+              placeholder="ex: Ferme Agro-Vet Sarl"
+              value={form.businessName}
+              onChangeText={set('businessName')}
+            />
+            <Input
+              label="Adresse"
+              placeholder="ex: Marché central, Maroua"
+              value={form.address}
+              onChangeText={set('address')}
+            />
+            <Input
+              label="Horaires d'ouverture"
+              placeholder="ex: Lun-Sam / 8:00-18:00"
+              value={form.schedule}
+              onChangeText={set('schedule')}
             />
           </>
         )}

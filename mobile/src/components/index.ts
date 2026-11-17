@@ -12,3 +12,5 @@ export { default as AlertBanner } from './AlertBanner';
 export { default as WeatherWidget } from './WeatherWidget';
 export { default as HomeAction } from './HomeAction';
 export { default as DocumentField } from './DocumentField';
+export { default as SideMenu } from './SideMenu';
+export type { SideMenuItem } from './SideMenu';

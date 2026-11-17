@@ -6,9 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="MokineVet — télémédecine vétérinaire pour les éleveurs au Cameroun. Téléconsultation, pré-analyse intelligente, carnet de santé du cheptel." />
     <title>MokineVet — Télémédecine vétérinaire</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#D7F0DD" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Installable dès la racine : l'icône ajoutée à l'écran d'accueil lance
+      // directement l'application (start_url du manifest), pas la landing —
+      // c'est l'app que l'éleveur veut retrouver au quotidien, pas la vitrine.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

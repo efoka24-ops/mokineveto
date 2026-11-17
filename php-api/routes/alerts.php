@@ -73,10 +73,14 @@ return static function (Router $r): void {
             $severity = 'INFO';
         }
 
-        $regions = ['ADAMAOUA', 'CENTRE', 'EST', 'EXTREME_NORD', 'LITTORAL',
-                    'NORD', 'NORD_OUEST', 'OUEST', 'SUD', 'SUD_OUEST'];
+        // Toutes les régions valides, tous pays confondus : une alerte peut
+        // cibler indifféremment une région camerounaise ou rwandaise.
+        $allRegions = array_merge(...array_map(
+            static fn (array $c): array => $c['regions'],
+            Countries::all()
+        ));
         $region = (string) Http::input('region', '');
-        $region = in_array($region, $regions, true) ? $region : null;
+        $region = in_array($region, $allRegions, true) ? $region : null;
 
         $expires = Http::input('expiresAt');
         if (is_string($expires) && $expires !== '') {
@@ -117,5 +121,41 @@ return static function (Router $r): void {
         }
 
         Http::ok($shape(Db::one('SELECT * FROM `Alert` WHERE `id` = ?', [$id])), 201);
+    });
+
+    /**
+     * Vue admin : toutes les alertes actives, indépendamment des
+     * exploitations de l'appelant — un admin n'a pas de ferme, la logique de
+     * filtrage par région de `/alerts` ne s'applique pas à son cas d'usage.
+     */
+    $r->get('/admin/alerts', static function () use ($shape): void {
+        Auth::requireRole('ADMIN');
+
+        $rows = Db::all(
+            "SELECT * FROM `Alert` WHERE `expiresAt` IS NULL OR `expiresAt` > ? ORDER BY `createdAt` DESC",
+            [Db::now()]
+        );
+
+        Http::ok(array_map($shape, $rows));
+    });
+
+    /**
+     * Clôture d'une alerte — réservée à l'administration. Une alerte
+     * régionale reste sciemment sans "vu" personnel (un risque sanitaire ne
+     * disparaît pas parce qu'un éleveur a ouvert l'écran une fois) ; c'est
+     * l'admin qui la retire quand le foyer est contenu ou l'information
+     * caduque.
+     */
+    $r->delete('/alerts/{id}', static function (array $args): void {
+        Auth::requireRole('ADMIN');
+
+        $alert = Db::one('SELECT `id` FROM `Alert` WHERE `id` = ?', [$args['id']]);
+        if ($alert === null) {
+            Http::fail('Alerte introuvable.', 404, 'NOT_FOUND');
+        }
+
+        Db::run('DELETE FROM `Alert` WHERE `id` = ?', [$alert['id']]);
+
+        Http::ok(['id' => $alert['id'], 'deleted' => true]);
     });
 };

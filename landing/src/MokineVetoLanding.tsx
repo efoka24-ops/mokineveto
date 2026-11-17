@@ -7,12 +7,12 @@ import React, { useState } from "react";
  */
 
 const LOGO = `${import.meta.env.BASE_URL}logo.jpg`; // Official MokineVET branding
-// APK : par défaut, l'asset "latest release" GitHub — URL permanente qui pointe
-// automatiquement vers le dernier APK publié par le workflow CI (aucun réglage à
-// refaire à chaque version). Surchargeable via VITE_APK_URL si besoin.
-const APK_URL =
-  import.meta.env.VITE_APK_URL ||
-  "https://github.com/efoka24-ops/mokineveto/releases/latest/download/mokineveto.apk";
+// MokineVeto est une PWA (pas de distribution app-store/APK) : tous les CTA
+// mènent à l'application elle-même, servie sur ce même domaine sous /app/.
+const APP_URL = import.meta.env.VITE_APP_URL || "/app/";
+// Solution de repli pour les appareils dont le WebAPK ne s'installe pas
+// (Google Play Services absent/limité) : APK signé, à installer manuellement.
+const APK_URL = import.meta.env.VITE_APK_URL || "/MokineVeto.apk";
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                                */
@@ -25,13 +25,21 @@ const FR: Dict = {
   "nav.kb": "Base de connaissances",
   "nav.pricing": "Tarifs",
   "nav.faq": "FAQ",
-  "cta.download": "Télécharger l'app",
+  "cta.download": "Accéder à MokineVeto",
   "cta.farmer": "Je suis éleveur",
   "cta.vet": "Je suis vétérinaire",
+  "cta.apk": "L'installation ne fonctionne pas ? Télécharger l'APK Android",
+  "cta.ios": "Sur iPhone : installer l'application",
+  "ios.title": "Installer MokineVeto sur iPhone",
+  "ios.s1": "Ouvrez cette page dans Safari (et non Chrome).",
+  "ios.s2": "Touchez le bouton Partager (le carré avec une flèche vers le haut).",
+  "ios.s3": "Choisissez « Sur l'écran d'accueil », puis « Ajouter ».",
+  "ios.note": "L'icône MokineVeto apparaît sur votre écran d'accueil et s'ouvre comme une application.",
+  "ios.open": "Ouvrir l'application",
   "hero.eyebrow": "Télémédecine vétérinaire · Cameroun",
   "hero.h1": "La santé de votre cheptel, à portée de téléphone.",
   "hero.sub":
-    "MokineVeto relie éleveurs et vétérinaires ruraux grâce à un assistant IA de pré-analyse et plus de 100 fiches pathologiques — même sans connexion.",
+    "MokineVeto relie éleveurs et vétérinaires ruraux grâce à un assistant IA de pré-analyse et plus de 100 fiches pathologiques.",
   "hero.trust1": "Pensée pour le monde rural",
   "feat.h2": "Tout le suivi sanitaire, dans une seule application",
   "how.eyebrow": "Comment ça marche",
@@ -51,13 +59,21 @@ const TRANSLATIONS: Record<string, Dict> = {
     "nav.kb": "Knowledge base",
     "nav.pricing": "Pricing",
     "nav.faq": "FAQ",
-    "cta.download": "Download the app",
+    "cta.download": "Open MokineVeto",
     "cta.farmer": "I'm a farmer",
     "cta.vet": "I'm a veterinarian",
+    "cta.apk": "Install not working? Download the Android APK",
+    "cta.ios": "On iPhone: install the app",
+    "ios.title": "Install MokineVeto on iPhone",
+    "ios.s1": "Open this page in Safari (not Chrome).",
+    "ios.s2": "Tap the Share button (the square with an up arrow).",
+    "ios.s3": "Choose “Add to Home Screen”, then “Add”.",
+    "ios.note": "The MokineVeto icon then appears on your home screen and opens like an app.",
+    "ios.open": "Open the app",
     "hero.eyebrow": "Veterinary telemedicine · Cameroon",
     "hero.h1": "Your herd's health, just a phone away.",
     "hero.sub":
-      "MokineVeto connects livestock farmers with rural veterinarians through an AI pre-analysis assistant and over 100 disease fact-sheets — even offline.",
+      "MokineVeto connects livestock farmers with rural veterinarians through an AI pre-analysis assistant and over 100 disease fact-sheets.",
     "hero.trust1": "Built for rural communities",
     "feat.h2": "All your animal health tracking, in one app",
     "how.eyebrow": "How it works",
@@ -75,9 +91,10 @@ const TRANSLATIONS: Record<string, Dict> = {
     "nav.kb": "Defte ganndal",
     "nav.pricing": "Coggu",
     "nav.faq": "Naamne",
-    "cta.download": "Aawtu app ndee",
+    "cta.download": "Naatu MokineVeto",
     "cta.farmer": "Ko mi gaynaako",
     "cta.vet": "Ko mi cafroowo dabbaaji",
+    "cta.apk": "Sosgol ngol gollaani ? Jaltin APK Android",
     "hero.eyebrow": "Safrugol dabbaaji woɗɗungol · Kameruun",
     "hero.h1": "Cellal dabbaaji maa, e junngo maa.",
     "hero.sub":
@@ -158,7 +175,40 @@ export default function MokineVetoLanding() {
   const [lang, setLang] = useState<"fr" | "en" | "ful">("fr");
   const t = (key: string) => (lang === "fr" ? FR[key] : TRANSLATIONS[lang]?.[key] ?? FR[key]);
 
-  const langBtn = (code: "fr" | "en" | "ful", label: string) => (
+  // Un iPhone ne peut pas installer d'APK : on lui montre la seule voie qui
+  // marche (PWA via Safari) et on masque le lien APK, inutile pour lui.
+  const isIos = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const [iosOpenAt, setIosOpenAt] = useState<"hero" | "cta" | null>(null);
+
+  /** Lien « iPhone » dépliant les 3 étapes d'installation ; `color` s'adapte au fond. */
+  const iosBlock = (where: "hero" | "cta", color: string, marginTop: number) => {
+    const iosOpen = iosOpenAt === where;
+    return (
+    <div style={{ marginTop }}>
+      <button
+        onClick={() => setIosOpenAt(iosOpen ? null : where)}
+        aria-expanded={iosOpen}
+        style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline", color, fontSize: 13, fontWeight: 500, fontFamily: "inherit" }}
+      >
+        {t("cta.ios")}
+      </button>
+      {iosOpen && (
+        <div style={{ marginTop: 12, padding: "16px 18px", borderRadius: 12, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", maxWidth: 420, textAlign: "left", marginInline: "auto" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t("ios.title")}</div>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+            <li>{t("ios.s1")}</li>
+            <li>{t("ios.s2")}</li>
+            <li>{t("ios.s3")}</li>
+          </ol>
+          <div style={{ fontSize: 12, opacity: 0.85, marginTop: 8 }}>{t("ios.note")}</div>
+          <a href={APP_URL} style={{ display: "inline-block", marginTop: 10, color: "#fff", fontWeight: 700, fontSize: 13 }}>{t("ios.open")} →</a>
+        </div>
+      )}
+    </div>
+    );
+  };
+
+  const langBtn =(code: "fr" | "en" | "ful", label: string) => (
     <button
       onClick={() => setLang(code)}
       style={{
@@ -220,7 +270,7 @@ export default function MokineVetoLanding() {
               <div style={{ display: "flex", alignItems: "center", border: "1px solid rgba(255,255,255,.22)", borderRadius: 999, overflow: "hidden" }}>
                 {langBtn("fr", "FR")}{langBtn("en", "EN")}{langBtn("ful", "FUL")}
               </div>
-              <a href={APK_URL} style={{ textDecoration: "none", background: C.green, color: "#fff", font: "700 14px 'Hanken Grotesk',sans-serif", padding: "11px 20px", borderRadius: 8 }}>{t("cta.download")}</a>
+              <a href={APP_URL} style={{ textDecoration: "none", background: C.green, color: "#fff", font: "700 14px 'Hanken Grotesk',sans-serif", padding: "11px 20px", borderRadius: 8 }}>{t("cta.download")}</a>
             </div>
           </div>
 
@@ -234,14 +284,20 @@ export default function MokineVetoLanding() {
               <h1 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 56, lineHeight: 1.02, letterSpacing: "-.025em", color: "#fff", margin: "0 0 22px" }}>{t("hero.h1")}</h1>
               <p style={{ fontSize: 19, lineHeight: 1.55, color: "#D8C5B2", margin: "0 0 34px", maxWidth: 480 }}>{t("hero.sub")}</p>
               <div style={{ display: "flex", gap: 14, marginBottom: 30, flexWrap: "wrap" }}>
-                <a href={APK_URL} style={{ textDecoration: "none", background: C.green, color: "#fff", font: "700 16px 'Hanken Grotesk',sans-serif", padding: "15px 28px", borderRadius: 8 }}>{t("cta.farmer")}</a>
-                <a href={APK_URL} style={{ textDecoration: "none", background: "rgba(255,255,255,.06)", border: "1.5px solid rgba(255,255,255,.28)", color: "#fff", font: "700 16px 'Hanken Grotesk',sans-serif", padding: "15px 28px", borderRadius: 8 }}>{t("cta.vet")}</a>
+                <a href={APP_URL} style={{ textDecoration: "none", background: C.green, color: "#fff", font: "700 16px 'Hanken Grotesk',sans-serif", padding: "15px 28px", borderRadius: 8 }}>{t("cta.farmer")}</a>
+                <a href={APP_URL} style={{ textDecoration: "none", background: "rgba(255,255,255,.06)", border: "1.5px solid rgba(255,255,255,.28)", color: "#fff", font: "700 16px 'Hanken Grotesk',sans-serif", padding: "15px 28px", borderRadius: 8 }}>{t("cta.vet")}</a>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 18, color: "#A98E78", fontSize: 14, fontWeight: 500 }}>
                 <span>{t("hero.trust1")}</span>
                 <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#6B4A2E" }} />
                 <span>Français · English · Fulfulde</span>
               </div>
+              {isIos ? iosBlock("hero", "#D8C5B2", 18) : (
+                <>
+                  <a href={APK_URL} style={{ display: "inline-block", marginTop: 18, textDecoration: "underline", color: "#A98E78", fontSize: 13, fontWeight: 500 }}>{t("cta.apk")}</a>
+                  {iosBlock("hero", "#A98E78", 8)}
+                </>
+              )}
             </div>
 
             {/* PHONE MOCKUP */}
@@ -279,7 +335,7 @@ export default function MokineVetoLanding() {
 
           {/* STATS STRIP */}
           <div data-grid style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderTop: "1px solid rgba(255,255,255,.1)", background: "rgba(0,0,0,.18)" }}>
-            {[["100+", "fiches pathologiques"], ["3", "FR · EN · Fulfulde"], ["100 FCFA", "par fiche consultée"], ["Hors-ligne", "synchro automatique"]].map(([big, small], i) => (
+            {[["100+", "fiches pathologiques"], ["3", "FR · EN · Fulfulde"], ["500 FCFA", "par fiche consultée"], ["IA", "pré-analyse instantanée"]].map(([big, small], i) => (
               <div key={i} style={{ padding: "24px 28px", borderRight: i < 3 ? "1px solid rgba(255,255,255,.08)" : "none" }}>
                 <div style={{ font: "700 30px 'Space Grotesk',sans-serif", color: C.greenLt }}>{big}</div>
                 <div style={{ fontSize: 13, color: "#C9B6A2", marginTop: 3 }}>{small}</div>
@@ -299,7 +355,7 @@ export default function MokineVetoLanding() {
             <Feature paths={["M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z", "M19 10v2a7 7 0 0 1-14 0v-2"]} title="Assistant IA de pré-analyse">Questionnaire guidé, pré-diagnostic d'orientation et niveau d'urgence. Le diagnostic final revient au vétérinaire.</Feature>
             <Feature paths={["M4 19.5A2.5 2.5 0 0 1 6.5 17H20", "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"]} title="Registre numérique du cheptel">Carnet de santé, vaccinations, reproduction, croissance et gestion des entrées / sorties.</Feature>
             <Feature paths={["M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9", "M10.3 21a1.94 1.94 0 0 0 3.4 0"]} title="Alertes & rappels">Rappels de vaccinations, alertes sanitaires automatiques et alertes épidémie régionales — push + SMS.</Feature>
-            <Feature paths={["M4 19.5A2.5 2.5 0 0 1 6.5 17H20", "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z", "M9 7h7M9 11h5"]} title="Base de connaissances">Plus de 100 fiches pathologiques : description, observations terrain, prévention — consultables hors-ligne.</Feature>
+            <Feature paths={["M4 19.5A2.5 2.5 0 0 1 6.5 17H20", "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z", "M9 7h7M9 11h5"]} title="Base de connaissances">Plus de 100 fiches pathologiques : description, observations terrain, prévention.</Feature>
             <Feature paths={["M3 3v18h18", "M7 14l4-4 3 3 5-6"]} title="Tableaux de bord">Effectifs, taux de mortalité et natalité, dépenses vétérinaires et pertes évitées. Rapports PDF.</Feature>
           </div>
         </div>
@@ -347,8 +403,8 @@ export default function MokineVetoLanding() {
               <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 42, lineHeight: 1.06, color: "#1F4D24", margin: "0 0 20px", letterSpacing: "-.02em" }}>{t("kb.h2")}</h2>
               <p style={{ fontSize: 17, lineHeight: 1.6, color: "#3E5C40", margin: "0 0 26px" }}>Chaque fiche décrit la pathologie, les observations terrain, la prévention et les informations destinées au vétérinaire. Elle alimente l'assistant IA et forme les éleveurs.</p>
               <div style={{ display: "flex", gap: 30, flexWrap: "wrap" }}>
-                <div><div style={{ font: "700 30px 'Space Grotesk',sans-serif", color: C.greenDk }}>100 FCFA</div><div style={{ fontSize: 13, color: "#4E6B4F" }}>par consultation de fiche</div></div>
-                <div><div style={{ font: "700 30px 'Space Grotesk',sans-serif", color: C.greenDk }}>Hors-ligne</div><div style={{ fontSize: 13, color: "#4E6B4F" }}>consultable sans réseau</div></div>
+                <div><div style={{ font: "700 30px 'Space Grotesk',sans-serif", color: C.greenDk }}>500 FCFA</div><div style={{ fontSize: 13, color: "#4E6B4F" }}>par consultation de fiche</div></div>
+                <div><div style={{ font: "700 30px 'Space Grotesk',sans-serif", color: C.greenDk }}>IA</div><div style={{ fontSize: 13, color: "#4E6B4F" }}>alimente l'assistant de pré-analyse</div></div>
               </div>
             </div>
             <div style={{ background: "#fff", borderRadius: 16, padding: 26, boxShadow: "0 20px 40px -22px rgba(31,77,36,.4)" }}>
@@ -396,7 +452,7 @@ export default function MokineVetoLanding() {
               <h3 style={{ font: "700 18px 'Space Grotesk',sans-serif", margin: "0 0 6px" }}>Premium</h3>
               <div style={{ font: "700 36px 'Space Grotesk',sans-serif", marginBottom: 18 }}>Abonnement</div>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 11 }}>
-                {["Téléconsultations (audio & vidéo)", "IA avancée & score de risque", "Tableaux de bord & rapports PDF", "Mode hors-ligne complet"].map((x, i) => (
+                {["Téléconsultations (audio & vidéo)", "IA avancée & score de risque", "Tableaux de bord & rapports PDF"].map((x, i) => (
                   <li key={i} style={{ fontSize: 14.5, color: "#EAFBE9", display: "flex", gap: 9 }}><span style={{ fontWeight: 800 }}>✓</span> {x}</li>
                 ))}
               </ul>
@@ -404,7 +460,7 @@ export default function MokineVetoLanding() {
             </div>
             <div style={{ border: "1px solid #ECE3D6", borderRadius: 16, padding: 30, background: "#fff", display: "flex", flexDirection: "column" }}>
               <h3 style={{ font: "700 18px 'Space Grotesk',sans-serif", color: C.ink, margin: "0 0 6px" }}>Fiche à l'unité</h3>
-              <div style={{ font: "700 36px 'Space Grotesk',sans-serif", color: C.ink, marginBottom: 18 }}>100 FCFA</div>
+              <div style={{ font: "700 36px 'Space Grotesk',sans-serif", color: C.ink, marginBottom: 18 }}>500 FCFA</div>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 11 }}>
                 <li style={{ fontSize: 14.5, color: "#5A4A3E", display: "flex", gap: 9 }}><span style={{ color: C.green, fontWeight: 800 }}>✓</span> Consultation d'une fiche pathologique</li>
                 <li style={{ fontSize: 14.5, color: "#5A4A3E", display: "flex", gap: 9 }}><span style={{ color: C.green, fontWeight: 800 }}>✓</span> Accessible éleveur & vétérinaire</li>
@@ -434,7 +490,7 @@ export default function MokineVetoLanding() {
             <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 42, color: C.ink, margin: 0, letterSpacing: "-.02em" }}>{t("faq.h2")}</h2>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Faq open q="L'application fonctionne-t-elle sans connexion ?" a="Oui. Consultation des fiches et saisie des données hors-ligne, avec synchronisation automatique au retour du réseau." />
+            <Faq open q="Ai-je besoin d'une connexion internet ?" a="Oui, une connexion est nécessaire pour consulter les fiches, échanger avec un vétérinaire et utiliser l'assistant IA. L'application est optimisée pour fonctionner correctement même avec un réseau faible." />
             <Faq q="Le chatbot remplace-t-il le vétérinaire ?" a="Non. L'assistant fournit une orientation et une pré-analyse ; le diagnostic final relève toujours d'un vétérinaire." />
             <Faq q="Comment payer les consultations ?" a="Par Mobile Money (Orange Money, MTN MoMo). La carte bancaire sera intégrée à terme." />
             <Faq q="En quelles langues l'application est-elle disponible ?" a="En français, anglais et fulfulde (peul), pour s'adapter au milieu rural." />
@@ -447,12 +503,18 @@ export default function MokineVetoLanding() {
           <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 46, margin: "0 0 16px", letterSpacing: "-.02em" }}>{t("cta.h2")}</h2>
           <p style={{ fontSize: 18, color: "#EAFBE9", margin: "0 auto 32px", maxWidth: 560, lineHeight: 1.55 }}>Rejoignez la première plateforme de télémédecine vétérinaire pensée pour le monde rural camerounais.</p>
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href={APK_URL} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, background: C.ink, padding: "12px 22px", borderRadius: 10 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="#5FCB6B"><path d="M3.6 2.2c-.3.3-.5.8-.5 1.4v16.8c0 .6.2 1.1.5 1.4l.1.1L13 12.5v-.2L3.7 2.1l-.1.1zM16.5 15.9l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1 .6 1 1.6 0 2.2l-3.8 2.1-.1-.1zM13.4 12.3l3.2 3.2-9.5 5.4c-.6.3-1.1.2-1.5-.1l7.8-8.5zM5.6 2.9c-.4-.3-.9-.4-1.5-.1l9.3 5.3-3.2 3.2L5.6 2.9z" /></svg>
-              <div style={{ textAlign: "left", lineHeight: 1.2 }}><div style={{ fontSize: 10, color: "#aaa" }}>Télécharger l'APK</div><div style={{ fontSize: 16, fontWeight: 700 }}>Android</div></div>
+            <a href={APP_URL} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, background: C.ink, padding: "12px 22px", borderRadius: 10 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5FCB6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              <div style={{ textAlign: "left", lineHeight: 1.2 }}><div style={{ fontSize: 10, color: "#aaa" }}>Application web</div><div style={{ fontSize: 16, fontWeight: 700 }}>Ouvrir MokineVeto</div></div>
             </a>
-            <a href={APK_URL} style={{ textDecoration: "none", border: "1.5px solid rgba(255,255,255,.55)", background: "transparent", color: "#fff", font: "700 15px 'Hanken Grotesk',sans-serif", padding: "13px 26px", borderRadius: 10, display: "inline-flex", alignItems: "center" }}>Devenir vétérinaire partenaire</a>
+            <a href={APP_URL} style={{ textDecoration: "none", border: "1.5px solid rgba(255,255,255,.55)", background: "transparent", color: "#fff", font: "700 15px 'Hanken Grotesk',sans-serif", padding: "13px 26px", borderRadius: 10, display: "inline-flex", alignItems: "center" }}>Devenir vétérinaire partenaire</a>
           </div>
+          {isIos ? iosBlock("cta", "#EAFBE9", 22) : (
+            <>
+              <a href={APK_URL} style={{ display: "inline-block", marginTop: 22, textDecoration: "underline", color: "#EAFBE9", fontSize: 13, fontWeight: 500 }}>{t("cta.apk")}</a>
+              {iosBlock("cta", "#EAFBE9", 8)}
+            </>
+          )}
         </div>
 
         {/* ===================== FOOTER ===================== */}

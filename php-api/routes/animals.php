@@ -183,4 +183,66 @@ return static function (Router $r): void {
 
         Http::ok($shapeEvent(Db::one('SELECT * FROM `HealthEvent` WHERE `id` = ?', [$id])), 201);
     });
+
+    /**
+     * Carnet de santé numérique de l'éleveur (SFD-ADMIN §4.1 / demande
+     * client) : agrège cheptel, événements de santé et prescriptions.
+     * Aucune bibliothèque PDF n'est disponible sur cet hébergement mutualisé
+     * (pas de Composer) : le mobile affiche ces données dans une vue
+     * imprimable, l'export PDF se fait via l'impression du navigateur —
+     * fonctionnellement équivalent, sans dépendance serveur fragile.
+     */
+    $r->get('/animals/carnet', static function () use ($shapeEvent): void {
+        $user = Auth::requireRole('ELEVEUR');
+
+        $animals = Db::all('SELECT * FROM `Animal` WHERE `userId` = ? ORDER BY `name` ASC', [$user['id']]);
+        $animalIds = array_column($animals, 'id');
+
+        $eventsByAnimal = [];
+        if ($animalIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($animalIds), '?'));
+            $events = Db::all(
+                "SELECT * FROM `HealthEvent` WHERE `animalId` IN ($placeholders) ORDER BY `date` DESC",
+                $animalIds
+            );
+            foreach ($events as $e) {
+                $eventsByAnimal[$e['animalId']][] = $shapeEvent($e);
+            }
+        }
+
+        $prescriptions = Db::all(
+            "SELECT p.*, vu.`name` AS vetName, a.`startsAt`, a.`consultationType`
+             FROM `Prescription` p
+             JOIN `VetProfile` v ON v.`id` = p.`vetProfileId`
+             JOIN `User` vu ON vu.`id` = v.`userId`
+             JOIN `Appointment` a ON a.`id` = p.`appointmentId`
+             WHERE p.`eleveurId` = ? ORDER BY p.`createdAt` DESC",
+            [$user['id']]
+        );
+
+        Http::ok([
+            'eleveur' => ['name' => $user['name'], 'phone' => $user['phone'], 'country' => $user['country']],
+            'animals' => array_map(static function (array $a) use ($eventsByAnimal): array {
+                return [
+                    'id'           => $a['id'],
+                    'name'         => $a['name'],
+                    'species'      => $a['species'],
+                    'breed'        => $a['breed'],
+                    'sex'          => $a['sex'],
+                    'age'          => $a['age'],
+                    'healthEvents' => $eventsByAnimal[$a['id']] ?? [],
+                ];
+            }, $animals),
+            'prescriptions' => array_map(static fn (array $p): array => [
+                'id'               => $p['id'],
+                'vetName'          => $p['vetName'],
+                'consultationDate' => $p['startsAt'],
+                'consultationType' => $p['consultationType'],
+                'medications'      => json_decode((string) $p['medications'], true) ?: [],
+                'instructions'     => $p['instructions'],
+                'createdAt'        => $p['createdAt'],
+            ], $prescriptions),
+            'generatedAt' => Db::now(),
+        ]);
+    });
 };

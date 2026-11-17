@@ -14,6 +14,9 @@ export interface Vet {
   professional: boolean;
   focus: string;
   ordreNumber: string;
+  availability: 'DISPONIBLE' | 'OCCUPE' | 'ABSENT';
+  certifiedBadge?: boolean;
+  distanceKm?: number;
 }
 
 export async function listVets(filters?: {

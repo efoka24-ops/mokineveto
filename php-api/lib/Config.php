@@ -70,4 +70,34 @@ final class Config
     {
         return self::get('APP_ENV', 'production') === 'production';
     }
+
+    /**
+     * Passerelle de paiement mobile money (apisungku, qui relaie vers pawaPay).
+     * Absente tant que le projet n'a pas été enrôlé côté apisungku.
+     */
+    public static function sungkuBaseUrl(): string
+    {
+        return rtrim(self::get('SUNGKU_BASE_URL', 'http://sungku.trugroup.cm') ?? '', '/');
+    }
+
+    public static function sungkuApiKey(): ?string
+    {
+        return self::get('SUNGKU_API_KEY');
+    }
+
+    public static function sungkuWebhookSecret(): ?string
+    {
+        return self::get('SUNGKU_WEBHOOK_SECRET');
+    }
+
+    /**
+     * Groq (https://console.groq.com) : inférence gratuite sur des modèles
+     * open source (Llama, Mixtral). Utilisé par l'assistant de pré-analyse
+     * (routes/ai.php) — absent, la route retombe sur le moteur de règles
+     * local plutôt que d'échouer.
+     */
+    public static function groqApiKey(): ?string
+    {
+        return self::get('GROQ_API_KEY');
+    }
 }

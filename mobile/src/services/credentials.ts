@@ -2,6 +2,7 @@
  * Dépôt des pièces justificatives du praticien (SFD §4.1.2).
  * Diplôme vétérinaire et carte d'ordre, JPG/PNG/PDF, 5 Mo maximum.
  */
+import { Platform } from 'react-native';
 import { API_BASE_URL } from './config';
 import { api, ApiError } from './api';
 
@@ -48,11 +49,20 @@ export async function uploadCredential(
 
   const form = new FormData();
   form.append('type', type);
-  form.append('file', {
-    uri: file.uri,
-    name: file.name,
-    type: file.mimeType,
-  } as unknown as Blob);
+
+  // Web (PWA) exige un vrai Blob dans FormData — l'objet { uri, name, type }
+  // est une convention React Native native, invisible pour fetch() dans un
+  // navigateur : le champ « file » arrivait vide côté serveur.
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(file.uri)).blob();
+    form.append('file', blob, file.name);
+  } else {
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
+  }
 
   const res = await fetch(`${API_BASE_URL}/vet-credentials`, {
     method: 'POST',

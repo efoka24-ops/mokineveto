@@ -26,7 +26,20 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "MokineVeto",
+      "shortName": "MokineVeto",
+      "lang": "fr",
+      "themeColor": "#D7F0DD",
+      "backgroundColor": "#D7F0DD",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/app/",
+      "scope": "/app/",
+      "output": "single"
+    },
+    "experiments": {
+      "baseUrl": "/app"
     },
     "plugins": [
       "expo-secure-store",

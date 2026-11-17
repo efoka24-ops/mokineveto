@@ -6,8 +6,8 @@ import { adminApi } from '../lib/api';
 export default function LoginPage() {
   const navigate = useNavigate();
   const login = useAdminStore((s) => s.login);
-  const [email, setEmail] = useState('admin@mokineveto.cm');
-  const [password, setPassword] = useState('admin123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,11 +40,12 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email ou téléphone</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="ex. 699000000"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               disabled={loading}
             />
@@ -72,7 +73,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600 mt-6">Demo: admin@mokineveto.cm / admin123456</p>
       </div>
     </div>
   );

@@ -8,10 +8,12 @@ import { colors, fonts, radii, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHerdStore } from '../../store/useHerdStore';
 import { listAlerts, type HealthAlert } from '../../services/alerts';
-import { getLocalWeather, type Weather } from '../../services/weather';
 import AlertBanner from '../../components/AlertBanner';
-import WeatherWidget from '../../components/WeatherWidget';
-import HomeAction from '../../components/HomeAction';
+import VetCard from '../../components/VetCard';
+import SideMenu, { type SideMenuItem } from '../../components/SideMenu';
+import * as Location from 'expo-location';
+import { getNearbyVets, type Vet as ApiVet } from '../../services/api';
+import { listSuppliers, type Supplier } from '../../services/marketplace';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -21,33 +23,14 @@ function hasActiveRecord(animal: { healthEvents?: unknown[] }): boolean {
   return (animal.healthEvents?.length ?? 0) > 0;
 }
 
-/**
- * Une échéance est « à venir » si elle tombe dans les 30 jours.
- * Le rappel de notification part à J-7 (SFD §4.11) ; l'accueil ouvre une fenêtre
- * plus large pour laisser à l'éleveur le temps de s'organiser.
- */
-function isUpcoming(dateIso?: string): boolean {
-  if (!dateIso) return false;
-  const due = new Date(dateIso).getTime();
-  if (Number.isNaN(due)) return false;
-  const now = Date.now();
-  return due >= now && due - now <= 30 * 24 * 60 * 60 * 1000;
-}
+type Category = 'ELEVEURS' | 'FOURNISSEURS' | 'VETERINAIRES';
 
 /**
- * Tableau de bord Éleveur (SFD §4.2).
- *
- * Composition imposée par la spécification : six boutons principaux à icônes
- * larges, un widget météo avec alerte épizootique, un bandeau d'alertes
- * sanitaires régionales et un résumé du cheptel.
- *
- * Cet écran suit la SFD et non la maquette Figma, qui décrivait un annuaire de
- * prestataires — arbitrage rendu par le propriétaire du produit le 2026-08-21
- * (constat C-01 de l'audit de design).
- *
- * Le bouton Urgence rouge permanent n'est pas monté ici mais au-dessus de la
- * navigation à onglets, afin de rester atteignable depuis tout écran comme
- * l'exige la spécification (voir components/EmergencyButton).
+ * Tableau de bord Éleveur, aligné sur la maquette « Accueil - Éleveur » :
+ * catégories parcourables (Éleveurs / Fournisseurs / Vétérinaires) qui
+ * filtrent la liste en dessous. Les fonctionnalités qui figuraient ici avant
+ * (résumé du cheptel, urgence) restent accessibles depuis le menu latéral —
+ * rien n'a disparu, seule la mise en avant a changé.
  */
 export default function HomeScreen() {
   const nav = useNavigation<Nav>();
@@ -56,18 +39,32 @@ export default function HomeScreen() {
   const hydrate = useHerdStore((s) => s.hydrate);
 
   const [alerts, setAlerts] = useState<HealthAlert[]>([]);
-  const [weather, setWeather] = useState<Weather>({ available: false, risk: 'LOW', reasons: [] });
   const [refreshing, setRefreshing] = useState(false);
+  const [nearbyVets, setNearbyVets] = useState<ApiVet[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [category, setCategory] = useState<Category>('VETERINAIRES');
+
+  const loadNearbyVets = useCallback(async () => {
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { data } = await getNearbyVets(pos.coords.latitude, pos.coords.longitude, 5);
+      setNearbyVets(data);
+    } catch {
+      // géolocalisation indisponible : la tuile "Consulter un Vétérinaire" reste l'accès normal
+    }
+  }, []);
 
   const load = useCallback(async () => {
-    // Chargements indépendants : l'échec de l'un ne doit pas priver l'éleveur
-    // des autres. Chaque service échoue déjà en silence de son côté.
     await Promise.all([
       hydrate().catch(() => {}),
       listAlerts().then(setAlerts),
-      getLocalWeather().then(setWeather),
+      loadNearbyVets(),
+      listSuppliers().then(({ data }) => setSuppliers(data)).catch(() => {}),
     ]);
-  }, [hydrate]);
+  }, [hydrate, loadNearbyVets]);
 
   useEffect(() => {
     load();
@@ -79,16 +76,32 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [load]);
 
-  // Résumé du cheptel (SFD §4.2)
-  const bySpecies = animals.reduce<Record<string, number>>((acc, a) => {
-    acc[a.species] = (acc[a.species] ?? 0) + 1;
-    return acc;
-  }, {});
   const withRecord = animals.filter(hasActiveRecord).length;
-  const upcomingVaccinations = animals.reduce(
-    (n, a) => n + (a.healthEvents?.filter((e) => isUpcoming(e.nextDueAt)).length ?? 0),
-    0
-  );
+
+  const menuItems: SideMenuItem[] = [
+    { icon: 'cow', label: 'Mon cheptel', badge: animals.length, onPress: () => nav.navigate('HerdList') },
+    { icon: 'virus-outline', label: 'Animaux malades', badge: withRecord, onPress: () => nav.navigate('HerdList') },
+    { icon: 'calendar-clock', label: 'Mes rendez-vous', onPress: () => nav.navigate('Main', { screen: 'Agenda' }) },
+    { icon: 'message-text-outline', label: 'Mes messages', onPress: () => nav.navigate('Main', { screen: 'Messages' }) },
+    { icon: 'book-outline', label: 'Fiches techniques', onPress: () => nav.navigate('FichesList') },
+    { icon: 'store-outline', label: 'Marketplace', onPress: () => nav.navigate('ProductList') },
+    { icon: 'notebook-outline', label: 'Mon carnet', onPress: () => nav.navigate('Carnet') },
+    { icon: 'alert-octagon', label: 'Urgence', tone: 'danger', onPress: () => nav.navigate('Emergency') },
+  ];
+
+  const categories: { key: Category; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+    { key: 'ELEVEURS', label: 'Éleveurs', icon: 'cow' },
+    { key: 'FOURNISSEURS', label: 'Fournisseurs', icon: 'store-outline' },
+    { key: 'VETERINAIRES', label: 'Vétérinaires', icon: 'stethoscope' },
+  ];
+
+  const onCategoryPress = (key: Category) => {
+    if (key === 'ELEVEURS') {
+      nav.navigate('HerdList');
+      return;
+    }
+    setCategory(key);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -118,104 +131,94 @@ export default function HomeScreen() {
           </Pressable>
           <View style={styles.headerIcons}>
             <RoundIcon icon="notifications-outline" label="Notifications" onPress={() => nav.navigate('Notifications')} />
-            <RoundIcon icon="settings-outline" label="Paramètres" onPress={() => nav.navigate('Settings')} />
+            <RoundIcon icon="menu" label="Menu" onPress={() => setMenuOpen(true)} />
           </View>
         </View>
 
-        {/* Alertes sanitaires régionales */}
+        <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" items={menuItems} />
+
+        {/* Alertes sanitaires régionales — reste visible en priorité, question de sécurité */}
         <AlertBanner alerts={alerts} />
 
-        {/* Météo locale et risque épizootique */}
-        <WeatherWidget weather={weather} />
-
-        {/* Six boutons principaux */}
-        <View style={styles.actions}>
-          <HomeAction
-            icon="cow"
-            label="Mon Cheptel"
-            badge={animals.length}
-            onPress={() => nav.navigate('HerdList')}
-          />
-          <HomeAction
-            icon="medical-bag"
-            label="Consulter un Vétérinaire"
-            onPress={() => nav.navigate('VetList', { title: 'Vétérinaires' })}
-          />
-          <HomeAction
-            icon="virus-outline"
-            label="Mes Animaux malades"
-            badge={withRecord}
-            onPress={() => nav.navigate('HerdList')}
-          />
-          <HomeAction
-            icon="calendar-clock"
-            label="Mes RDV"
-            onPress={() => nav.navigate('Main', { screen: 'Agenda' })}
-          />
-          <HomeAction
-            icon="message-text-outline"
-            label="Mes Messages"
-            onPress={() => nav.navigate('Main', { screen: 'Messages' })}
-          />
-          <HomeAction
-            icon="alert-octagon"
-            label="Urgence"
-            tone="danger"
-            onPress={() => nav.navigate('Emergency')}
-          />
+        {/* Parcourir par catégorie */}
+        <Text style={styles.section}>Parcourir par catégorie</Text>
+        <View style={styles.categories}>
+          {categories.map((c) => (
+            <Pressable
+              key={c.key}
+              style={[styles.categoryTile, category === c.key && styles.categoryTileActive]}
+              onPress={() => onCategoryPress(c.key)}
+            >
+              <MaterialCommunityIcons
+                name={c.icon}
+                size={22}
+                color={category === c.key ? colors.white : colors.brown}
+              />
+              <Text style={[styles.categoryLabel, category === c.key && styles.categoryLabelActive]}>
+                {c.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
-        {/* Résumé du cheptel */}
-        <Text style={styles.section}>Mon cheptel en un coup d'œil</Text>
-        <View style={styles.summary}>
-          <SummaryTile value={animals.length} label="animaux" icon="cow" />
-          <SummaryTile value={withRecord} label="dossiers actifs" icon="file-document-outline" />
-          <SummaryTile value={upcomingVaccinations} label="vaccins à venir" icon="needle" />
-        </View>
-
-        {Object.keys(bySpecies).length > 0 && (
-          <View style={styles.speciesCard}>
-            {Object.entries(bySpecies).map(([species, count], i) => (
-              <View key={species} style={[styles.speciesRow, i > 0 && styles.speciesBorder]}>
-                <Text style={styles.speciesName}>{species}</Text>
-                <Text style={styles.speciesCount}>{count}</Text>
+        {/* Liste selon la catégorie sélectionnée */}
+        {category === 'VETERINAIRES' && (
+          <>
+            <Text style={styles.section}>Vétérinaires les plus proches</Text>
+            {nearbyVets.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <MaterialCommunityIcons name="stethoscope" size={28} color={colors.green} />
+                <Text style={styles.emptyTitle}>Aucun vétérinaire trouvé à proximité</Text>
+                <Text style={styles.emptyBody}>Activez la localisation pour voir les praticiens proches de vous.</Text>
               </View>
-            ))}
-          </View>
+            ) : (
+              nearbyVets.map((v) => (
+                <VetCard
+                  key={v.id}
+                  vet={{ ...v, photo: v.photo ?? '', focus: v.focus ?? '', ordreNumber: v.ordreNumber ?? '' }}
+                  onPress={() => nav.navigate('VetDetail', { id: v.id })}
+                  onInfo={() => nav.navigate('VetDetail', { id: v.id })}
+                />
+              ))
+            )}
+          </>
         )}
 
-        {animals.length === 0 && (
-          <Pressable style={styles.emptyCard} onPress={() => nav.navigate('AddAnimal')}>
-            <MaterialCommunityIcons name="plus-circle-outline" size={28} color={colors.green} />
-            <Text style={styles.emptyTitle}>Aucun animal enregistré</Text>
-            <Text style={styles.emptyBody}>
-              Ajoutez un premier animal pour suivre sa santé et ses vaccinations.
-            </Text>
-          </Pressable>
+        {category === 'FOURNISSEURS' && (
+          <>
+            <Text style={styles.section}>Fournisseurs à proximité</Text>
+            {suppliers.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <MaterialCommunityIcons name="store-outline" size={28} color={colors.green} />
+                <Text style={styles.emptyTitle}>Aucun fournisseur pour l'instant</Text>
+                <Text style={styles.emptyBody}>Les fournisseurs inscrits sur MokineVeto apparaîtront ici.</Text>
+              </View>
+            ) : (
+              suppliers.map((s) => (
+                <Pressable
+                  key={s.id}
+                  style={styles.supplierCard}
+                  onPress={() => nav.navigate('ProductList')}
+                >
+                  <View style={styles.supplierAvatar}>
+                    <MaterialCommunityIcons name="store" size={22} color={colors.white} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.supplierName} numberOfLines={1}>{s.name}</Text>
+                    {!!s.address && <Text style={styles.supplierMeta} numberOfLines={1}>{s.address}</Text>}
+                    {!!s.schedule && <Text style={styles.supplierMeta} numberOfLines={1}>{s.schedule}</Text>}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.white} />
+                </Pressable>
+              ))
+            )}
+          </>
         )}
 
         {/* Espace pour la barre d'onglets et le bouton d'urgence flottant. */}
         <View style={{ height: 150 }} />
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function SummaryTile({
-  value,
-  label,
-  icon,
-}: {
-  value: number;
-  label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-}) {
-  return (
-    <View style={styles.summaryTile}>
-      <MaterialCommunityIcons name={icon} size={22} color={colors.green} />
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel} numberOfLines={2}>{label}</Text>
-    </View>
   );
 }
 
@@ -265,13 +268,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.md,
-  },
-
   section: {
     fontFamily: fonts.display,
     fontSize: 18,
@@ -280,35 +276,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
 
-  summary: { flexDirection: 'row', gap: spacing.md },
-  summaryTile: {
+  categories: { flexDirection: 'row', gap: spacing.md },
+  categoryTile: {
     flex: 1,
     alignItems: 'center',
+    gap: spacing.xs,
     backgroundColor: colors.white,
     borderRadius: radii.lg,
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
     ...shadow.soft,
   },
-  summaryValue: { fontFamily: fonts.displayBold, fontSize: 22, color: colors.brown, marginTop: 2 },
-  summaryLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.grey, textAlign: 'center' },
+  categoryTileActive: { backgroundColor: colors.brown },
+  categoryLabel: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.brown },
+  categoryLabelActive: { color: colors.white },
 
-  speciesCard: {
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    ...shadow.soft,
-  },
-  speciesRow: {
+  supplierCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+    gap: spacing.md,
+    backgroundColor: colors.brown,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow.soft,
   },
-  speciesBorder: { borderTopWidth: 1, borderTopColor: colors.border },
-  speciesName: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink },
-  speciesCount: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.green },
+  supplierAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.greenDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supplierName: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.white },
+  supplierMeta: { fontFamily: fonts.body, fontSize: 12, color: '#ffffffcc', marginTop: 2 },
 
   emptyCard: {
     alignItems: 'center',

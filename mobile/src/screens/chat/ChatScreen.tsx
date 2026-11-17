@@ -26,7 +26,7 @@ interface Msg {
 
 export default function ChatScreen() {
   const nav = useNavigation<any>();
-  const { vetId, name } = useRoute<Rt>().params;
+  const { conversationId: initialConversationId, vetId, eleveurId, name } = useRoute<Rt>().params;
   const myId = useAuthStore((s) => s.user?.id);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState('');
@@ -41,9 +41,14 @@ export default function ChatScreen() {
 
     const init = async () => {
       try {
-        // Create/find conversation with this vet
-        const convoRes = await createConversation(vetId);
-        const cid = convoRes.data.id;
+        // Une conversation déjà connue (ouverte depuis la liste des messages)
+        // se rouvre telle quelle ; sinon on en crée ou récupère une, à partir
+        // du praticien ou de l'éleveur ciblé (« Message » depuis son profil).
+        let cid = initialConversationId;
+        if (!cid) {
+          const convoRes = await createConversation({ vetId, eleveurId });
+          cid = convoRes.data.id;
+        }
         setConversationId(cid);
 
         // Load history
@@ -75,7 +80,7 @@ export default function ChatScreen() {
 
     init();
     return () => cleanup?.();
-  }, [vetId, myId]);
+  }, [initialConversationId, vetId, eleveurId, myId]);
 
   const send = async () => {
     const trimmed = text.trim();

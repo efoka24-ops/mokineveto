@@ -62,7 +62,14 @@ export default function ChatbotScreen() {
 
   return (
     <Screen bg={colors.white} scroll>
-      <TopBar title="Assistant de pré-analyse" />
+      <TopBar
+        title="Assistant de pré-analyse"
+        right={
+          <Pressable onPress={() => nav.navigate('ChatbotHistory')} accessibilityRole="button" accessibilityLabel="Historique">
+            <Ionicons name="time-outline" size={22} color={colors.brown} />
+          </Pressable>
+        }
+      />
 
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle" size={18} color={colors.green} />

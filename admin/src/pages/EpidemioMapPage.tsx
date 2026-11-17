@@ -46,8 +46,7 @@ export default function EpidemioMapPage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Base épidémiologique</h1>
+      <div className="flex justify-end items-center mb-4">
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}

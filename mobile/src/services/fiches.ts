@@ -35,3 +35,19 @@ export async function getFiche(id: string): Promise<FicheDetailResponse> {
   }>(`/fiches/${id}`, true);
   return { fiche: response.data, unlocked: response.unlocked ?? false };
 }
+
+export interface NewFiche {
+  name: string;
+  species: string[];
+  contagious: boolean;
+  description: string;
+  fieldObs?: string;
+  prevention?: string;
+  vetInfo?: string;
+}
+
+export const createFiche = (data: NewFiche) =>
+  api.post<{ success: boolean; data: { id: string } }>('/fiches', data, true);
+
+export const deleteFiche = (id: string) =>
+  api.delete<{ success: boolean; data: { deleted: boolean } }>(`/fiches/${id}`, true);

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAdminStore } from './store/useAdminStore';
+import AdminLayout from './components/AdminLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import VetQueuePage from './pages/VetQueuePage';
@@ -8,51 +9,21 @@ import EpidemioMapPage from './pages/EpidemioMapPage';
 import AlertsPage from './pages/AlertsPage';
 import MarketplacePage from './pages/MarketplacePage';
 import FichesPage from './pages/FichesPage';
+import ChatbotRulesPage from './pages/ChatbotRulesPage';
+import UsersPage from './pages/UsersPage';
+import AppointmentsPage from './pages/AppointmentsPage';
+import ReviewsPage from './pages/ReviewsPage';
+import DisputesPage from './pages/DisputesPage';
+import AuditLogPage from './pages/AuditLogPage';
+import ConfigPage from './pages/ConfigPage';
+import MobileMoneyPage from './pages/MobileMoneyPage';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAdminStore();
+  const user = useAdminStore((s) => s.user);
 
   if (!user) return <Navigate to="/login" />;
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-green-700 text-white p-4 shadow">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold">
-            MokineVeto Admin
-          </Link>
-          <div className="flex gap-6 items-center">
-            <Link to="/" className="hover:text-green-200">
-              Dashboard
-            </Link>
-            <Link to="/vets/pending" className="hover:text-green-200">
-              Vétérinaires
-            </Link>
-            <Link to="/fiches" className="hover:text-green-200">
-              Fiches
-            </Link>
-            <Link to="/alerts" className="hover:text-green-200">
-              Alertes
-            </Link>
-            <Link to="/epidemio" className="hover:text-green-200">
-              Épidémio
-            </Link>
-            <Link to="/marketplace" className="hover:text-green-200">
-              Marketplace
-            </Link>
-            <span className="text-sm">{user.name}</span>
-            <button
-              onClick={logout}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
-      <main className="max-w-7xl mx-auto">{children}</main>
-    </div>
-  );
+  return <AdminLayout>{children}</AdminLayout>;
 }
 
 export default function App() {
@@ -63,7 +34,7 @@ export default function App() {
   }, [hydrate]);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -107,10 +78,74 @@ export default function App() {
           }
         />
         <Route
+          path="/users"
+          element={
+            <ProtectedLayout>
+              <UsersPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/appointments"
+          element={
+            <ProtectedLayout>
+              <AppointmentsPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/reviews"
+          element={
+            <ProtectedLayout>
+              <ReviewsPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/chatbot"
+          element={
+            <ProtectedLayout>
+              <ChatbotRulesPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
           path="/marketplace"
           element={
             <ProtectedLayout>
               <MarketplacePage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/disputes"
+          element={
+            <ProtectedLayout>
+              <DisputesPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/audit-log"
+          element={
+            <ProtectedLayout>
+              <AuditLogPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/config"
+          element={
+            <ProtectedLayout>
+              <ConfigPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/mobile-money"
+          element={
+            <ProtectedLayout>
+              <MobileMoneyPage />
             </ProtectedLayout>
           }
         />

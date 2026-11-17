@@ -9,7 +9,7 @@ const isProduction = process.env.EXPO_PUBLIC_ENV === 'production';
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (isProduction
-    ? 'http://mokineveto-app.trugroup.cm'
+    ? 'https://mokineveto.trugroup.cm/api'
     : 'http://localhost:8000');
 
 /** API est maintenant toujours réelle (utilisée par services/auth.ts) */

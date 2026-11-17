@@ -27,19 +27,22 @@ require __DIR__ . '/lib/Id.php';
 require __DIR__ . '/lib/Db.php';
 require __DIR__ . '/lib/Jwt.php';
 require __DIR__ . '/lib/Auth.php';
+require __DIR__ . '/lib/Audit.php';
 require __DIR__ . '/lib/Router.php';
+require __DIR__ . '/lib/Sungku.php';
+require __DIR__ . '/lib/Groq.php';
+require __DIR__ . '/lib/Countries.php';
 
-// Le fichier d'environnement.
-//
-// L'idéal serait de le placer au-dessus de la racine web. Ce n'est pas possible
-// ici : le compte FTP est enraciné SUR `public_html`, il n'existe aucun
-// répertoire accessible au-dessus. Le fichier vit donc dans le répertoire de
-// l'application, et sa protection repose sur les règles de refus du .htaccess.
+// Le fichier d'environnement, un niveau au-dessus de ce répertoire (racine du
+// compte, qui est aussi la racine web ici : le compte FTP est enraciné
+// directement dessus, sans `public_html`). Sa protection repose donc sur les
+// règles de refus du .htaccess racine, pas sur un emplacement hors d'atteinte
+// d'une URL — aucun répertoire ne l'est sur ce compte.
 //
 // Risque résiduel assumé : si le .htaccess venait à être ignoré, les
-// identifiants seraient exposés. À corriger dès que le compte disposera d'un
-// répertoire hors racine web (VPS, ou compte non enraciné sur public_html).
-Config::load(__DIR__ . '/.env');
+// identifiants seraient exposés. À corriger si le compte migre un jour vers
+// un hébergement où un répertoire existe réellement hors racine web.
+Config::load(__DIR__ . '/../.env');
 
 date_default_timezone_set('UTC');
 

@@ -133,6 +133,10 @@ export interface SignupPayload {
   password: string;
   birthDate?: string;
   role: 'ELEVEUR' | 'VETERINAIRE';
+  // Pays d'inscription : conditionne les régions proposées, la langue par
+  // défaut et la devise des paiements (voir GET /meta/countries).
+  country?: string;
+  region?: string;
   // Vet-specific fields (optional)
   specialty?: string;
   gender?: 'homme' | 'femme';
@@ -140,6 +144,14 @@ export interface SignupPayload {
   ordreNumber?: string;
   professional?: boolean;
   focus?: string;
+}
+
+export interface Country {
+  code: string;
+  label: string;
+  language: string;
+  currency: string;
+  regions: string[];
 }
 
 export interface LoginPayload {
@@ -156,6 +168,7 @@ export interface AuthResponse {
     email?: string;
     phone: string;
     role: 'ELEVEUR' | 'VETERINAIRE' | 'ADMIN';
+    country?: string;
     avatarUrl?: string;
     birthDate?: string;
   };
@@ -169,6 +182,8 @@ export interface UpdateProfilePayload {
 
 export const signup = (payload: SignupPayload) =>
   api.post<AuthResponse>('/auth/signup', payload);
+
+export const getCountries = () => api.get<{ success: boolean; data: Country[] }>('/meta/countries');
 
 export const login = (payload: LoginPayload) =>
   api.post<AuthResponse>('/auth/login', payload);
@@ -212,6 +227,7 @@ export interface Vet {
   professional: boolean;
   focus?: string;
   ordreNumber?: string;
+  availability: 'DISPONIBLE' | 'OCCUPE' | 'ABSENT';
 }
 
 export const listVets = (filters?: { gender?: string; specialty?: string; topRated?: boolean }) => {
@@ -225,13 +241,71 @@ export const listVets = (filters?: { gender?: string; specialty?: string; topRat
 export const getVet = (id: string) =>
   api.get<{ success: boolean; data: Vet }>(`/vets/${id}`);
 
-export const getVetAvailability = (id: string, date: string) =>
-  api.get<{ success: boolean; data: { slots: string[] } }>(`/vets/${id}/availability?date=${date}`);
+export interface MyVetProfile extends Vet {
+  verification: 'PENDING' | 'APPROVED' | 'REJECTED';
+  credentialsComplete: boolean;
+}
+
+export const getMyVetProfile = () =>
+  api.get<{ success: boolean; data: MyVetProfile }>('/vets/me', true);
+
+export const updateMyAvailability = (availability: Vet['availability']) =>
+  api.patch<{ success: boolean; data: MyVetProfile }>('/vets/me/availability', { availability }, true);
+
+export interface VetStats {
+  consultations: { total: number; upcoming: number; completed: number };
+  revenue: { grossTotal: number; netTotal: number; grossThisMonth: number; netThisMonth: number; commissionRate: number };
+}
+
+export const getMyVetStats = () =>
+  api.get<{ success: boolean; data: VetStats }>('/vets/me/stats', true);
+
+export interface ScheduleDay {
+  dayOfWeek: number;
+  open: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  slotMinutes: number;
+}
+
+export const getMySchedule = () =>
+  api.get<{ success: boolean; data: ScheduleDay[] }>('/vets/me/schedule', true);
+
+export const setMyScheduleDay = (day: ScheduleDay) =>
+  api.post<{ success: boolean; data: ScheduleDay }>('/vets/me/schedule', day, true);
+
+export const updateMyLocation = (lat: number, lng: number) =>
+  api.patch<{ success: boolean; data: { saved: boolean } }>('/vets/me/location', { lat, lng }, true);
+
+export const getNearbyVets = (lat: number, lng: number, limit = 3) =>
+  api.get<{ success: boolean; data: Vet[] }>(`/vets/nearby?lat=${lat}&lng=${lng}&limit=${limit}`);
+
+export interface EpidemiologyRegion {
+  region: string;
+  total: number;
+  high: number;
+}
+
+export const getMyEpidemiology = () =>
+  api.get<{ success: boolean; data: EpidemiologyRegion[] }>('/vets/me/epidemiology', true);
+
+// Le backend PHP renvoie directement la liste des créneaux ; l'ancien backend
+// Node l'enveloppait dans { slots }. On normalise ici pour que les écrans
+// n'aient jamais à connaître la forme brute.
+export const getVetAvailability = async (id: string, date: string): Promise<string[]> => {
+  const res = await api.get<{ success: boolean; data: string[] | { slots: string[] } }>(
+    `/vets/${id}/availability?date=${date}`
+  );
+  const d = res.data;
+  return Array.isArray(d) ? d : d?.slots ?? [];
+};
 
 export const listSpecialties = () =>
   api.get<{ success: boolean; data: string[] }>('/vets/specialties');
 
 // ─── Appointments ──────────────────────────────────────────────────
+export type ConsultationType = 'CALL' | 'VIDEO' | 'FIELD';
+
 export interface ApiAppointment {
   id: string;
   eleveurId: string;
@@ -241,6 +315,8 @@ export interface ApiAppointment {
   amount: number;
   reason: string;
   method?: string;
+  consultationType: ConsultationType;
+  distanceKm?: number | null;
   status: 'UPCOMING' | 'COMPLETED' | 'CANCELLED';
   cancelReasonCode?: string;
   cancelNote?: string;
@@ -257,6 +333,81 @@ export interface ApiAppointment {
 
 export const listAppointments = () =>
   api.get<{ success: boolean; data: ApiAppointment[] }>('/appointments', true);
+
+export const createAppointment = (payload: {
+  vetId: string;
+  startsAt: string;
+  reason?: string;
+  method: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CARD';
+  consultationType: ConsultationType;
+  farmId?: string;
+}) => api.post<{ success: boolean; data: ApiAppointment }>('/appointments', payload, true);
+
+export interface AppointmentPricing {
+  call: number;
+  video: number;
+  perKm: number;
+  currency: string;
+}
+
+export const getAppointmentPricing = () =>
+  api.get<{ success: boolean; data: AppointmentPricing }>('/appointments/pricing');
+
+export interface FieldEstimate {
+  available: boolean;
+  distanceKm?: number;
+  amount?: number;
+  currency?: string;
+}
+
+export const getFieldEstimate = (vetId: string, farmId?: string) =>
+  api.get<{ success: boolean; data: FieldEstimate }>(
+    `/appointments/pricing/field-estimate?vetId=${encodeURIComponent(vetId)}${farmId ? `&farmId=${encodeURIComponent(farmId)}` : ''}`,
+    true
+  );
+
+export interface Prescription {
+  id: string;
+  appointmentId: string;
+  vetProfileId: string;
+  eleveurId: string;
+  medications: { name: string; dosage: string; route: string; duration?: string }[];
+  instructions: string | null;
+  createdAt: string;
+}
+
+export const getPrescription = (appointmentId: string) =>
+  api.get<{ success: boolean; data: Prescription }>(`/appointments/${appointmentId}/prescription`, true);
+
+export const createPrescription = (
+  appointmentId: string,
+  payload: { medications: { name: string; dosage: string; route: string; duration?: string }[]; instructions?: string }
+) => api.post<{ success: boolean; data: Prescription }>(`/appointments/${appointmentId}/prescription`, payload, true);
+
+export interface Carnet {
+  eleveur: { name: string; phone: string; country: string };
+  animals: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    sex: string;
+    age: string;
+    healthEvents: { id: string; type: string; label: string; date: string; nextDueAt?: string }[];
+  }[];
+  prescriptions: {
+    id: string;
+    vetName: string;
+    consultationDate: string;
+    consultationType: ConsultationType;
+    medications: Prescription['medications'];
+    instructions: string | null;
+    createdAt: string;
+  }[];
+  generatedAt: string;
+}
+
+export const getCarnet = () => api.get<{ success: boolean; data: Carnet }>('/animals/carnet', true);
 
 export const getAppointment = (id: string) =>
   api.get<{ success: boolean; data: ApiAppointment }>(`/appointments/${id}`, true);
@@ -317,6 +468,10 @@ export interface ApiConversation {
   eleveurId: string;
   vetProfileId: string;
   lastMessageAt?: string;
+  lastMessage?: string | null;
+  unreadCount?: number;
+  vet?: { id: string; name: string; avatarUrl?: string; specialty?: string };
+  eleveur?: { id: string; name: string; avatarUrl?: string };
   messages?: ApiMessage[];
 }
 
@@ -329,8 +484,12 @@ export interface ApiMessage {
   author?: { id: string; name: string };
 }
 
-export const createConversation = (vetProfileId: string) =>
-  api.post<{ success: boolean; data: ApiConversation }>('/chat/conversations', { vetProfileId }, true);
+export const createConversation = (target: { vetId?: string; eleveurId?: string }) =>
+  api.post<{ success: boolean; data: ApiConversation }>(
+    '/chat/conversations',
+    { vetProfileId: target.vetId, eleveurId: target.eleveurId },
+    true
+  );
 
 export const getConversation = (id: string) =>
   api.get<{ success: boolean; data: ApiConversation }>(`/chat/conversations/${id}`, true);

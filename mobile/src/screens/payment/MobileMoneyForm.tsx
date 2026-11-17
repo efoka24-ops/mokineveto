@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Button, Input, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, spacing } from '../../theme';
@@ -12,17 +11,23 @@ interface Props {
   brandLabel: string;
 }
 
-const SAVED = ['237 6XX XX XX 01', '237 6XX XX XX 02', '237 6XX XX XX 03'];
-
 export default function MobileMoneyForm({ title, brandColor, brandLabel }: Props) {
   const nav = useNavigation<any>();
-  const setPhone = usePaymentStore((s) => s.setPhone);
-  const [number, setNumber] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [selected, setSelected] = useState(0);
+  const { phone: savedPhone, setPhone } = usePaymentStore();
+  const [number, setNumber] = useState(savedPhone);
+  const [confirm, setConfirm] = useState(savedPhone);
 
   const save = () => {
-    setPhone(number || SAVED[selected]);
+    const digits = number.replace(/\D/g, '');
+    if (digits.length < 9 || digits.length > 15) {
+      Alert.alert('Numéro invalide', 'Saisissez un numéro Mobile Money valide (ex. 6 99 00 01 11).');
+      return;
+    }
+    if (digits !== confirm.replace(/\D/g, '')) {
+      Alert.alert('Numéros différents', 'Le numéro et sa confirmation doivent être identiques.');
+      return;
+    }
+    setPhone(digits.length === 9 && digits.startsWith('6') ? `237${digits}` : digits);
     nav.goBack();
   };
 
@@ -36,14 +41,6 @@ export default function MobileMoneyForm({ title, brandColor, brandLabel }: Props
 
       <Input label="Numéro" placeholder="000 000 000 00" keyboardType="phone-pad" value={number} onChangeText={setNumber} />
       <Input label="Confirmer le numéro" placeholder="000 000 000 00" keyboardType="phone-pad" value={confirm} onChangeText={setConfirm} />
-
-      <Text style={styles.savedLabel}>Numéros enregistrés</Text>
-      {SAVED.map((s, i) => (
-        <Pressable key={s} style={styles.savedRow} onPress={() => setSelected(i)}>
-          <Text style={styles.savedText}>{s}</Text>
-          <Ionicons name={i === selected ? 'radio-button-on' : 'radio-button-off'} size={20} color={colors.brown} />
-        </Pressable>
-      ))}
     </Screen>
   );
 }
@@ -51,7 +48,4 @@ export default function MobileMoneyForm({ title, brandColor, brandLabel }: Props
 const styles = StyleSheet.create({
   tile: { height: 120, borderRadius: radii.lg, backgroundColor: colors.tileBlack, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xl },
   tileText: { fontFamily: fonts.bodyBold, fontSize: 24 },
-  savedLabel: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.ink, marginTop: spacing.md, marginBottom: spacing.sm },
-  savedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md },
-  savedText: { fontFamily: fonts.body, fontSize: 14, color: colors.ink },
 });

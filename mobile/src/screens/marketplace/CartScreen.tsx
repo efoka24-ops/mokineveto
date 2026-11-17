@@ -3,12 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, Screen, TopBar } from '../../components';
+import { Button, Input, Screen, TopBar } from '../../components';
 import { colors, fonts, radii, spacing } from '../../theme';
 import { useCartStore } from '../../store/useCartStore';
 import { createOrder } from '../../services/marketplace';
-import { initOrderPayment, checkPaymentStatus } from '../../services/payment';
+import { initOrderPayment, checkPaymentStatus, METHOD_LABEL, type PaymentMethod } from '../../services/payment';
 import { usePaymentStore } from '../../store/usePaymentStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -16,13 +17,26 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export default function CartScreen() {
   const nav = useNavigation<Nav>();
   const { lines, setQty, total, clear, supplierId } = useCartStore();
-  const { method, phone } = usePaymentStore();
+  const { method, phone, setMethod, setPhone } = usePaymentStore();
+  const accountPhone = useAuthStore((s) => s.user?.phone);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState('');
+
+  React.useEffect(() => {
+    if (!phone && accountPhone) setPhone(accountPhone);
+  }, [accountPhone]);
 
   const checkout = async () => {
     const sid = supplierId();
     if (!sid || lines.length === 0) return;
+
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone || trimmedPhone.length < 8) {
+      setPhoneError('Entrez le numéro Mobile Money qui recevra la demande de paiement.');
+      return;
+    }
+    setPhoneError('');
 
     try {
       setLoading(true);
@@ -34,7 +48,7 @@ export default function CartScreen() {
       );
       if (!orderRes.data?.id) throw new Error('Order creation failed');
 
-      const payRes = await initOrderPayment({ orderId: orderRes.data.id, method, phone });
+      const payRes = await initOrderPayment({ orderId: orderRes.data.id, method, phone: trimmedPhone });
       if (!payRes.paymentId) throw new Error('Payment init failed');
 
       let success = false;
@@ -95,6 +109,35 @@ export default function CartScreen() {
         ))
       )}
 
+      {lines.length > 0 && (
+        <View style={{ marginTop: spacing.xl }}>
+          <View style={styles.methodRow}>
+            {(['ORANGE_MONEY', 'MTN_MOMO'] as PaymentMethod[]).map((m) => (
+              <Pressable
+                key={m}
+                style={[styles.methodChip, method === m && styles.methodChipActive]}
+                onPress={() => setMethod(m)}
+              >
+                <Text style={[styles.methodChipText, method === m && styles.methodChipTextActive]}>
+                  {METHOD_LABEL[m]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Input
+            label="Numéro Mobile Money"
+            placeholder="Ex : 6XX XXX XXX"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={(v) => {
+              setPhone(v);
+              if (phoneError) setPhoneError('');
+            }}
+          />
+          {phoneError ? <Text style={styles.error}>{phoneError}</Text> : null}
+        </View>
+      )}
+
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
     </Screen>
   );
@@ -110,4 +153,10 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.greenPale, alignItems: 'center', justifyContent: 'center' },
   qty: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink, minWidth: 20, textAlign: 'center' },
   feedback: { fontFamily: fonts.bodyMedium, fontSize: 14, textAlign: 'center', marginTop: spacing.lg },
+  methodRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  methodChip: { flex: 1, paddingVertical: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.green, alignItems: 'center' },
+  methodChipActive: { backgroundColor: colors.green },
+  methodChipText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.green },
+  methodChipTextActive: { color: colors.white },
+  error: { fontFamily: fonts.body, fontSize: 12, color: colors.danger, marginTop: -spacing.sm },
 });

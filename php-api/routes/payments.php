@@ -6,14 +6,12 @@ declare(strict_types=1);
  * Paiements mobile money (SFD §4.9).
  *
  * Trois motifs : consultation, déblocage de fiche, commande. Chacun crée une
- * transaction en attente, transmise à l'agrégateur, puis confirmée par sa
- * notification (webhook).
+ * transaction en attente, transmise à l'agrégateur (apisungku, qui relaie vers
+ * pawaPay pour Orange Money / MTN MoMo), puis confirmée par sa notification
+ * (webhook signé — voir /payments/webhook/sungku).
  *
- * **État actuel** : l'agrégateur n'est pas encore branché sur cet hébergement.
- * Les transactions sont créées et restent en attente ; le webhook est en place
- * et fonctionnel, prêt à recevoir les confirmations dès que les identifiants
- * seront renseignés. Rien n'est jamais marqué payé sans confirmation externe —
- * simuler un encaissement serait la pire des tromperies pour un éleveur.
+ * Rien n'est jamais marqué payé sans confirmation externe — simuler un
+ * encaissement serait la pire des tromperies pour un éleveur.
  */
 
 return static function (Router $r): void {
@@ -24,7 +22,7 @@ return static function (Router $r): void {
      * Crée une transaction en attente et renvoie la réponse attendue par le
      * mobile. Le montant vient toujours de la base, jamais du client.
      */
-    $initiate = static function (string $purpose, int $amount, array $user) use ($methods): array {
+    $initiate = static function (string $purpose, int $amount, array $user, array $metadata = []) use ($methods): array {
         $method = strtoupper((string) Http::input('method', ''));
         if (!in_array($method, $methods, true)) {
             Http::fail('Moyen de paiement invalide.', 400);
@@ -35,7 +33,9 @@ return static function (Router $r): void {
             Http::fail('Numéro de téléphone requis pour le paiement mobile.', 400);
         }
 
-        // Référence unique, utilisée pour rendre le webhook idempotent.
+        // Référence unique, utilisée pour rendre le webhook idempotent — et
+        // transmise telle quelle à apisungku comme `reference`, pour que leur
+        // notification nous revienne avec cette même valeur.
         $reference = strtoupper(substr($purpose, 0, 3)) . '-' . bin2hex(random_bytes(8));
 
         $paymentId = Db::insert('Payment', [
@@ -47,6 +47,33 @@ return static function (Router $r): void {
             'camooReference' => $reference,
             'status'         => 'PENDING',
         ]);
+
+        // Mobile money : le dépôt est réellement initié auprès de l'opérateur
+        // via apisungku. Une carte reste un moyen déclaré mais non branché ici.
+        if ($method !== 'CARD') {
+            try {
+                Sungku::initiateDeposit([
+                    'amount'          => (string) $amount,
+                    'currency'        => Countries::currency($user['country'] ?? Countries::DEFAULT),
+                    'phoneNumber'     => $phone,
+                    'reference'       => $reference,
+                    'description'     => 'MokineVeto — ' . strtolower($purpose),
+                    'customerMessage' => 'MokineVeto paiement',
+                    'metadata'        => $metadata,
+                ]);
+            } catch (SungkuRejected $e) {
+                // Refus explicite (numéro invalide, opérateur non couvert…) :
+                // c'est prouvé, la transaction n'ira nulle part.
+                Db::update('Payment', $paymentId, ['status' => 'FAILED']);
+                Http::fail('Paiement refusé : ' . $e->getMessage(), 422);
+            } catch (SungkuUnavailable $e) {
+                // Issue indéterminée : on laisse la transaction PENDING plutôt
+                // que de prétendre à un échec qui n'est pas prouvé — la
+                // réconciliation côté apisungku ou une nouvelle tentative de
+                // l'éleveur la débloqueront.
+                error_log('[payments] apisungku indisponible : ' . $e->getMessage());
+            }
+        }
 
         return [
             'paymentId' => $paymentId,
@@ -97,7 +124,7 @@ return static function (Router $r): void {
 
         // Tarif unique de déblocage, configurable par l'environnement.
         $amount = max(0, (int) Config::get('FICHE_UNLOCK_PRICE', '500'));
-        $result = $initiate('FICHE_UNLOCK', $amount, $user);
+        $result = $initiate('FICHE_UNLOCK', $amount, $user, ['ficheId' => $ficheId]);
 
         // Le déblocage est enregistré mais ne prendra effet qu'à la
         // confirmation du paiement : voir le webhook.
@@ -161,13 +188,71 @@ return static function (Router $r): void {
     });
 
     /**
-     * Notification de l'agrégateur.
+     * Applique le verdict d'une notification externe à une transaction
+     * locale. Partagé entre les deux webhooks (agrégateur générique et
+     * apisungku) : mêmes effets métier, mêmes garanties d'idempotence.
+     *
+     * @return array{id: string, status: string, alreadyProcessed?: bool}
+     */
+    $settlePayment = static function (array $payment, string $status, array $rawPayload, ?string $ficheId): array {
+        // Idempotence : une transaction déjà tranchée n'est plus modifiée —
+        // les notifications arrivent parfois en double ou dans le désordre.
+        if ($payment['status'] !== 'PENDING') {
+            return ['id' => $payment['id'], 'status' => $payment['status'], 'alreadyProcessed' => true];
+        }
+
+        Db::update('Payment', $payment['id'], [
+            'status'            => $status,
+            'rawWebhookPayload' => json_encode($rawPayload, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        if ($status === 'SUCCEEDED') {
+            // Les effets métier ne sont appliqués qu'après confirmation réelle.
+            if ($payment['purpose'] === 'ORDER') {
+                $order = Db::one('SELECT `id` FROM `Order` WHERE `paymentId` = ?', [$payment['id']]);
+                if ($order !== null) {
+                    Db::update('Order', $order['id'], ['status' => 'CONFIRMED']);
+                }
+            }
+
+            if ($payment['purpose'] === 'FICHE_UNLOCK' && $ficheId !== null && $ficheId !== '') {
+                $exists = Db::one(
+                    'SELECT `id` FROM `FicheUnlock` WHERE `userId` = ? AND `ficheId` = ?',
+                    [$payment['userId'], $ficheId]
+                );
+                if ($exists === null) {
+                    Db::insert('FicheUnlock', [
+                        'userId'     => $payment['userId'],
+                        'ficheId'    => $ficheId,
+                        'paymentId'  => $payment['id'],
+                        'unlockedAt' => Db::now(),
+                    ], false);
+                }
+            }
+        }
+
+        Db::insert('Notification', [
+            'userId'    => $payment['userId'],
+            'type'      => 'payment_' . strtolower($status),
+            'title'     => $status === 'SUCCEEDED' ? 'Paiement confirmé' : 'Paiement échoué',
+            'body'      => $status === 'SUCCEEDED'
+                ? 'Votre paiement de ' . (int) $payment['amount'] . ' FCFA a été confirmé.'
+                : "Votre paiement de " . (int) $payment['amount'] . " FCFA n'a pas abouti.",
+            'data'      => json_encode(['paymentId' => $payment['id']], JSON_UNESCAPED_UNICODE),
+            'createdAt' => Db::now(),
+        ], false);
+
+        return ['id' => $payment['id'], 'status' => $status];
+    };
+
+    /**
+     * Notification générique d'un agrégateur.
      *
      * Non authentifiée par jeton utilisateur — elle vient du prestataire — mais
      * protégée par un secret partagé et rendue idempotente par la référence :
      * une même notification reçue deux fois ne crédite qu'une fois.
      */
-    $r->post('/payments/webhook', static function (): void {
+    $r->post('/payments/webhook', static function () use ($settlePayment): void {
         $secret = Config::get('PAYMENT_WEBHOOK_SECRET', '');
         if ($secret === null || $secret === '') {
             error_log('[payments] webhook appelé sans secret configuré');
@@ -194,56 +279,68 @@ return static function (Router $r): void {
             Http::fail('Transaction introuvable.', 404, 'NOT_FOUND');
         }
 
-        // Idempotence : une transaction déjà tranchée n'est plus modifiée.
-        if ($payment['status'] !== 'PENDING') {
-            Http::ok(['id' => $payment['id'], 'status' => $payment['status'], 'alreadyProcessed' => true]);
+        Http::ok($settlePayment($payment, $status, Http::body(), (string) Http::input('ficheId', '')));
+    });
+
+    /**
+     * Notification signée d'apisungku (dépôts Orange Money / MTN MoMo relayés
+     * vers pawaPay). Signature HMAC-SHA256 sur "timestamp.corps", voir
+     * apisungku/php-api/lib/Webhooks.php::deliver pour la contrepartie.
+     *
+     * Le `ficheId` d'un déblocage de fiche n'existe pas côté apisungku : il
+     * est retrouvé depuis la transaction locale plutôt que depuis le webhook.
+     */
+    $r->post('/payments/webhook/sungku', static function () use ($settlePayment): void {
+        $rawBody   = Http::rawBody();
+        $timestamp = (string) (Http::header('X-Apisungku-Timestamp') ?? '');
+        $signature = (string) (Http::header('X-Apisungku-Signature') ?? '');
+
+        if ($timestamp === '' || $signature === '' || !Sungku::verifyWebhookSignature($rawBody, $timestamp, $signature)) {
+            Http::fail('Signature invalide.', 403);
         }
 
-        Db::update('Payment', $payment['id'], [
-            'status'            => $status,
-            'rawWebhookPayload' => json_encode(Http::body(), JSON_UNESCAPED_UNICODE),
-        ]);
-
-        if ($status === 'SUCCEEDED') {
-            // Les effets métier ne sont appliqués qu'après confirmation réelle.
-            if ($payment['purpose'] === 'ORDER') {
-                $order = Db::one('SELECT `id` FROM `Order` WHERE `paymentId` = ?', [$payment['id']]);
-                if ($order !== null) {
-                    Db::update('Order', $order['id'], ['status' => 'CONFIRMED']);
-                }
-            }
-
-            if ($payment['purpose'] === 'FICHE_UNLOCK') {
-                $ficheId = (string) Http::input('ficheId', '');
-                if ($ficheId !== '') {
-                    $exists = Db::one(
-                        'SELECT `id` FROM `FicheUnlock` WHERE `userId` = ? AND `ficheId` = ?',
-                        [$payment['userId'], $ficheId]
-                    );
-                    if ($exists === null) {
-                        Db::insert('FicheUnlock', [
-                            'userId'     => $payment['userId'],
-                            'ficheId'    => $ficheId,
-                            'paymentId'  => $payment['id'],
-                            'unlockedAt' => Db::now(),
-                        ], false);
-                    }
-                }
-            }
+        // Tolérance de 5 minutes : au-delà, ce n'est plus une livraison
+        // fraîche mais un rejeu d'une signature interceptée.
+        if (abs(time() - (int) $timestamp) > 300) {
+            Http::fail('Notification expirée.', 403);
         }
 
-        Db::insert('Notification', [
-            'userId'    => $payment['userId'],
-            'type'      => 'payment_' . strtolower($status),
-            'title'     => $status === 'SUCCEEDED' ? 'Paiement confirmé' : 'Paiement échoué',
-            'body'      => $status === 'SUCCEEDED'
-                ? 'Votre paiement de ' . (int) $payment['amount'] . ' FCFA a été confirmé.'
-                : "Votre paiement de " . (int) $payment['amount'] . " FCFA n'a pas abouti.",
-            'data'      => json_encode(['paymentId' => $payment['id']], JSON_UNESCAPED_UNICODE),
-            'createdAt' => Db::now(),
-        ], false);
+        $payload = Http::body();
+        $data    = is_array($payload['data'] ?? null) ? $payload['data'] : [];
 
-        Http::ok(['id' => $payment['id'], 'status' => $status]);
+        $reference    = trim((string) ($data['reference'] ?? ''));
+        $sungkuStatus = strtoupper((string) ($data['status'] ?? ''));
+
+        if ($reference === '') {
+            Http::fail('Référence manquante.', 400);
+        }
+
+        // Sungku traduit déjà les statuts pawaPay bruts vers son propre
+        // vocabulaire (StatusMapper::fromPawaPay) avant de nous notifier :
+        // c'est CONFIRMED/FAILED qui nous parvient, jamais COMPLETED (qui est
+        // le statut pawaPay d'origine, interne à Sungku). PROCESSING/PENDING
+        // sont des statuts intermédiaires, pas définitifs de notre point de vue.
+        $status = match ($sungkuStatus) {
+            'CONFIRMED' => 'SUCCEEDED',
+            'FAILED'    => 'FAILED',
+            default     => null,
+        };
+        if ($status === null) {
+            Http::ok(['ignored' => true, 'status' => $sungkuStatus]);
+        }
+
+        $payment = Db::one('SELECT * FROM `Payment` WHERE `camooReference` = ?', [$reference]);
+        if ($payment === null) {
+            Http::fail('Transaction introuvable.', 404, 'NOT_FOUND');
+        }
+
+        // Le ficheId d'un déblocage voyage dans les métadonnées transmises à
+        // l'initiation (voir /payments/init-fiche-unlock) et nous revient
+        // telles quelles dans la notification.
+        $meta    = is_array($data['metadata'] ?? null) ? $data['metadata'] : [];
+        $ficheId = isset($meta['ficheId']) ? (string) $meta['ficheId'] : null;
+
+        Http::ok($settlePayment($payment, $status, $payload, $ficheId));
     });
 
     /**

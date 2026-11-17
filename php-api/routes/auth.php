@@ -19,9 +19,17 @@ return static function (Router $r): void {
         'email'     => $u['email'],
         'phone'     => $u['phone'],
         'role'      => $u['role'],
+        'country'   => $u['country'] ?? Countries::DEFAULT,
         'avatarUrl' => $u['avatarUrl'],
         'birthDate' => $u['birthDate'],
     ];
+
+    // ─── Pays et régions ─────────────────────────────────────────────────────
+    // Source unique de vérité pour le sélecteur pays de l'inscription : le
+    // mobile ne code en dur aucune liste de régions.
+    $r->get('/meta/countries', static function (): void {
+        Http::ok(Countries::all());
+    });
 
     /** Durée de validité du jeton : 30 jours, comme le backend remplacé. */
     $ttl = 30 * 24 * 60 * 60;
@@ -44,11 +52,39 @@ return static function (Router $r): void {
         if (strlen($password) < 8 || !preg_match('/[A-Z]/', $password) || !preg_match('/\d/', $password)) {
             Http::fail('Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre.', 400);
         }
-        if (!in_array($role, ['ELEVEUR', 'VETERINAIRE'], true)) {
+        if (!in_array($role, ['ELEVEUR', 'VETERINAIRE', 'FOURNISSEUR'], true)) {
             Http::fail('Type de compte invalide.', 400);
         }
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Http::fail('Adresse e-mail invalide.', 400);
+        }
+        // Un numéro banni reste bloqué même après une éventuelle anonymisation
+        // ultérieure du compte d'origine (SFD-ADMIN §3.1.3).
+        if (Db::one('SELECT `phone` FROM `BannedPhone` WHERE `phone` = ?', [$phone]) !== null) {
+            Http::fail('Ce numéro ne peut pas être utilisé pour créer un compte.', 403, 'PHONE_BANNED');
+        }
+
+        $country = strtoupper((string) Http::input('country', Countries::DEFAULT));
+        if (!Countries::exists($country)) {
+            Http::fail('Pays non pris en charge.', 400);
+        }
+
+        // Vérification de FORMAT uniquement (lettres, chiffres, tirets,
+        // 4 à 20 caractères) : aucun ordre professionnel (Cameroun, Rwanda
+        // Vet Council…) n'expose d'API publique pour vérifier l'existence
+        // réelle d'un numéro de licence. La validation de fond reste
+        // manuelle, faite par un administrateur (SFD §4.1.2).
+        $ordreNumber = trim((string) Http::input('ordreNumber', ''));
+        if ($role === 'VETERINAIRE') {
+            if ($ordreNumber === '') {
+                Http::fail("Le numéro d'ordre professionnel est requis.", 400);
+            }
+            if (!preg_match('/^[A-Za-z0-9\-\/]{4,20}$/', $ordreNumber)) {
+                Http::fail(
+                    "Format de numéro d'ordre invalide : lettres, chiffres et tirets uniquement, de 4 à 20 caractères.",
+                    400
+                );
+            }
         }
 
         $existing = Db::one(
@@ -65,6 +101,7 @@ return static function (Router $r): void {
             'phone'        => $phone,
             'passwordHash' => password_hash($password, PASSWORD_BCRYPT),
             'role'         => $role,
+            'country'      => $country,
             'birthDate'    => ((string) Http::input('birthDate', '')) ?: null,
             'avatarUrl'    => 'https://i.pravatar.cc/300?u=' . rawurlencode($phone),
         ]);
@@ -82,21 +119,36 @@ return static function (Router $r): void {
                 'hourlyRate'       => max(0, (int) Http::input('hourlyRate', 7000)),
                 'professional'     => Http::input('professional') ? 1 : 0,
                 'focus'            => ((string) Http::input('focus', '')) ?: 'À définir',
-                'ordreNumber'      => ((string) Http::input('ordreNumber', '')) ?: 'En attente de vérification',
+                'ordreNumber'      => $ordreNumber,
                 'interventionZone' => ((string) Http::input('interventionZone', '')) ?: null,
                 'verification'     => 'PENDING',
             ]);
         }
 
         if ($role === 'ELEVEUR') {
-            $regions = ['ADAMAOUA', 'CENTRE', 'EST', 'EXTREME_NORD', 'LITTORAL',
-                        'NORD', 'NORD_OUEST', 'OUEST', 'SUD', 'SUD_OUEST'];
-            $region = (string) Http::input('region', '');
+            $regions = Countries::regions($country);
+            $region  = (string) Http::input('region', '');
             Db::insert('Farm', [
                 'userId'    => $userId,
                 'name'      => 'Élevage de ' . $name,
-                'region'    => in_array($region, $regions, true) ? $region : 'CENTRE',
+                'region'    => in_array($region, $regions, true) ? $region : Countries::defaultRegion($country),
                 'isDefault' => 1,
+            ]);
+        }
+
+        if ($role === 'FOURNISSEUR') {
+            $regions = Countries::regions($country);
+            $region  = (string) Http::input('region', '');
+            // Le catalogue reste vide et invisible des éleveurs tant que le
+            // fournisseur n'a pas ajouté au moins un produit actif.
+            Db::insert('Supplier', [
+                'userId'   => $userId,
+                'name'     => ((string) Http::input('businessName', '')) ?: $name,
+                'phone'    => $phone,
+                'region'   => in_array($region, $regions, true) ? $region : Countries::defaultRegion($country),
+                'address'  => ((string) Http::input('address', '')) ?: null,
+                'schedule' => ((string) Http::input('schedule', '')) ?: null,
+                'active'   => 1,
             ]);
         }
 
@@ -123,6 +175,15 @@ return static function (Router $r): void {
             Http::fail('Identifiants incorrects.', 401, 'INVALID_CREDENTIALS');
         }
 
+        if ($user['status'] === 'BANNED') {
+            Http::fail('Ce compte a été banni.', 403, 'ACCOUNT_BANNED');
+        }
+        if ($user['status'] === 'SUSPENDED'
+            && ($user['suspendedUntil'] === null || strtotime((string) $user['suspendedUntil']) > time())
+        ) {
+            Http::fail('Ce compte est suspendu' . ($user['statusReason'] ? ' : ' . $user['statusReason'] : '.'), 403, 'ACCOUNT_SUSPENDED');
+        }
+
         $token = Jwt::sign(
             ['sub' => $user['id'], 'role' => $user['role'], 'phone' => $user['phone']],
             $ttl
@@ -145,6 +206,14 @@ return static function (Router $r): void {
                 $profile['ratingAvg']       = (float) $profile['ratingAvg'];
                 $profile['ratingCount']     = (int) $profile['ratingCount'];
                 $payload['vetProfile'] = $profile;
+            }
+        }
+
+        if ($user['role'] === 'FOURNISSEUR') {
+            $supplier = Db::one('SELECT * FROM `Supplier` WHERE `userId` = ?', [$user['id']]);
+            if ($supplier !== null) {
+                $supplier['active'] = (bool) $supplier['active'];
+                $payload['supplierProfile'] = $supplier;
             }
         }
 

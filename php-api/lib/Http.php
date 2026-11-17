@@ -14,14 +14,25 @@ final class Http
     /** Corps JSON de la requête, décodé une seule fois. */
     private static ?array $body = null;
 
+    /** Corps brut, conservé pour la vérification de signature (HMAC webhook). */
+    private static ?string $rawBody = null;
+
+    public static function rawBody(): string
+    {
+        if (self::$rawBody === null) {
+            self::$rawBody = (string) file_get_contents('php://input');
+        }
+        return self::$rawBody;
+    }
+
     public static function body(): array
     {
         if (self::$body !== null) {
             return self::$body;
         }
 
-        $raw = file_get_contents('php://input');
-        if ($raw === false || $raw === '') {
+        $raw = self::rawBody();
+        if ($raw === '') {
             return self::$body = [];
         }
 
